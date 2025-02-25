@@ -1,0 +1,17 @@
+return {
+	sgn = { conceal = "sgn", alias = "sgn", desc = "Symbol: sgn" },
+	sin = { conceal = "sin", alias = "sin", desc = "Symbol: sin" },
+	cos = { conceal = "cos", alias = "cos", desc = "Symbol: cos" },
+	tan = { conceal = "tan", alias = "tan", desc = "Symbol: tan" },
+	cot = { conceal = "cot", alias = "cot", desc = "Symbol: cot" },
+	arcsin = { conceal = "arcsin", alias = "asin", desc = "Symbol: arcsin" },
+	arccos = { conceal = "arcsin", alias = "acos", desc = "Symbol: arcsin" },
+	gcd = { conceal = "gcd", alias = "gcd", desc = "Symbol: gcd" },
+	deg = { conceal = "deg", alias = "deg", desc = "Symbol: deg" },
+	exp = { conceal = "exp", alias = "exp", desc = "Symbol: exp" },
+	sup = { conceal = "sup", alias = "sup", desc = "Symbol: sup" },
+	inf = { conceal = "inf", alias = "inf", desc = "Symbol: inf" },
+	d = { conceal = "d", alias = "d", desc = "Symbol: d" },
+	ln = { conceal = "ln", alias = "ln", desc = "Symbol: ln" },
+	log = { conceal = "log", alias = "log", desc = "Symbol: log" },
+}
