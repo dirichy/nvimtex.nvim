@@ -3,7 +3,7 @@ local M = {}
 function M.in_text()
 	local node = util.get_node_at_cursor()
 	while node do
-		if node:type() == "text_mode" then
+		if util.TEXT_NODES[node:type()] then
 			-- For \text{}
 			local parent = util.node_parent(node)
 			if parent and util.MATH_NODES[parent:type()] then
@@ -11,6 +11,25 @@ function M.in_text()
 			end
 			return true
 		elseif util.MATH_NODES[node:type()] then
+			return false
+		end
+		node = util.node_parent(node)
+	end
+	return true
+end
+function M.im_enable()
+	local node = util.get_node_at_cursor()
+	while node do
+		if util.TEXT_NODES[node:type()] then
+			-- For \text{}
+			local parent = util.node_parent(node)
+			if parent and util.MATH_NODES[parent:type()] then
+				return false
+			end
+			return true
+		elseif util.MATH_NODES[node:type()] then
+			return false
+		elseif util.ENG_NODES[node:type()] then
 			return false
 		end
 		node = util.node_parent(node)

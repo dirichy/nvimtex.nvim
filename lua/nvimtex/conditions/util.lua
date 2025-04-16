@@ -7,9 +7,8 @@ M.MATH_NODES = {
 
 M.TEXT_NODES = {
 	text_mode = true,
-	label_definition = true,
-	label_reference = true,
 }
+
 M.ENV_NODES = {
 	generic_environment = true,
 	math_environment = true,
@@ -20,6 +19,10 @@ M.ENV_NODES = {
 	pycode_environment = true,
 	sagesilent_environment = true,
 	sageblock_environment = true,
+}
+M.ENG_NODES = {
+	label_definition = true,
+	label_reference = true,
 }
 M.CMD_NODES = {
 	generic_command = true,
