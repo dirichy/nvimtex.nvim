@@ -1,5 +1,6 @@
-local default_args = function()
-	local path = vim.fn.expand("%:p")
+local util = require("nvimtex.util")
+local default_args = function(path)
+	path = path or vim.fn.expand("%:p")
 	local jobname = string.match(path, "([^/]*)%.tex$")
 	local cwd = string.match(path, "(.*)/[^/]*%.tex$")
 	local args = { jobname }
@@ -19,7 +20,12 @@ local default_args = function()
 end
 local Job = require("plenary.job")
 local function arara(args)
-	local opts = vim.tbl_deep_extend("force", default_args(), args or {})
+	local path
+	if util.get_magic_comment("root") then
+		path = vim.fn.expand("%:p:h") .. "/" .. util.get_magic_comment("root")
+		path = vim.fs.normalize(path)
+	end
+	local opts = vim.tbl_deep_extend("force", default_args(path), args or {})
 	Job:new(opts):start()
 end
 return arara
