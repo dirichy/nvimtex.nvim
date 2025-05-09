@@ -107,7 +107,6 @@ end
 --- judge if the cursor is in n-th arg of cmd.
 --- cmd_name is the name of cmd without backslash, n is a number.
 --- when n=nil, it will return the number k such that the cursor is in k-th arg if the cursor is in any arg of cmd.
---- --TODO:when n=0, it will return the number k such that the cursor is in k-th arg if the cursor is in optional arg of cmd.
 --- check_ancestor means whether to check ancestor. For example, \cmd_name{\othercmd{aa|a}}
 --- will return the number k such that the cursor is in k-th arg if check ancestor is the number k such that the cursor is in k-th arg, but return false when check ancestor is false
 --- when cmd_name is a table, will check all cmd_name in the table. return the number k such that the cursor is in k-th arg if at least one of them is found
