@@ -2,14 +2,16 @@ local symbol = require("nvimtex.symbol.items")
 local hl = require("nvimtex.highlight")
 local source = {}
 
-for key, value in pairs(symbol) do
-	table.insert(source, {
-		label = value.alias,
-		filterText = value.alias,
-		insertText = value.tex,
-		kind_icon = value.conceal,
-		kind_hl = hl[value.class],
-	})
+for _, value in pairs(symbol) do
+	if type(value.tex) == "string" then
+		table.insert(source, {
+			label = value.alias,
+			filterText = value.alias,
+			insertText = value.tex,
+			kind_icon = type(value.conceal) == "string" and value.conceal,
+			kind_hl = hl[value.class],
+		})
+	end
 end
 
 ---@type blink.cmp.Source

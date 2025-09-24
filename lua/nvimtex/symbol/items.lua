@@ -1,3 +1,28 @@
+local font = require("latex_concealer.filters.mathfont")
+
+local function iter_on_alphabet()
+	local i = string.byte("a") - 1
+	return function()
+		if i == string.byte("z") then
+			i = string.byte("A")
+		elseif i == string.byte("Z") then
+			return
+		else
+			i = i + 1
+		end
+		return string.char(i)
+	end
+end
+
+local function swapcase(s)
+	return (s:gsub("%a", function(c)
+		if c:match("%l") then
+			return c:upper()
+		else
+			return c:lower()
+		end
+	end))
+end
 local M = {
 	["Downarrow"] = { conceal = "⇓", class = "arrow", tex = "\\Downarrow", alias = "" },
 	["Leftarrow"] = { conceal = "⇐", class = "arrow", tex = "\\Leftarrow", alias = "" },
@@ -11,17 +36,18 @@ local M = {
 	["hookrightarrow"] = { conceal = "↪", class = "arrow", tex = "\\hookrightarrow", alias = "" },
 	["iff"] = { conceal = "⇔", class = "arrow", tex = "\\iff", alias = "iff" },
 	["implies"] = { conceal = "⇒", class = "arrow", tex = "\\implies", alias = "" },
+	["impliedby"] = { conceal = "⇐", class = "arrow", tex = "\\impliedby", alias = "" },
 	["leftarrow"] = { conceal = "←", class = "arrow", tex = "\\leftarrow", alias = "ot" },
 	["leftharpoondown"] = { conceal = "↽", class = "arrow", tex = "\\leftharpoondown", alias = "" },
 	["leftharpoonup"] = { conceal = "↼", class = "arrow", tex = "\\leftharpoonup", alias = "" },
 	["leftrightarrow"] = { conceal = "↔", class = "arrow", tex = "\\leftrightarrow", alias = "oto" },
 	["longleftrightarrow"] = { conceal = "⟷", class = "arrow", tex = "\\longleftrightarrow", alias = "llr" },
 	["mapsto"] = { conceal = "↦", class = "arrow", tex = "\\mapsto", alias = "mto" },
-	["nearrow"] = { conceal = "↗", class = "arrow", tex = "\\nearrow", alias = "" },
-	["nwarrow"] = { conceal = "↖", class = "arrow", tex = "\\nwarrow", alias = "" },
+	["nearrow"] = { conceal = "↗", class = "arrow", tex = "\\nearrow", alias = "ura" },
+	["nwarrow"] = { conceal = "↖", class = "arrow", tex = "\\nwarrow", alias = "ula" },
 	["rightarrow"] = { conceal = "→", class = "arrow", tex = "\\rightarrow", alias = "" },
-	["searrow"] = { conceal = "↘", class = "arrow", tex = "\\searrow", alias = "" },
-	["swarrow"] = { conceal = "↙", class = "arrow", tex = "\\swarrow", alias = "" },
+	["searrow"] = { conceal = "↘", class = "arrow", tex = "\\searrow", alias = "dra" },
+	["swarrow"] = { conceal = "↙", class = "arrow", tex = "\\swarrow", alias = "dla" },
 	["to"] = { conceal = "→", class = "arrow", tex = "\\to", alias = "to" },
 	["uparrow"] = { conceal = "↑", class = "arrow", tex = "\\uparrow", alias = "" },
 	["updownarrow"] = { conceal = "↕", class = "arrow", tex = "\\updownarrow", alias = "" },
@@ -202,7 +228,7 @@ local M = {
 	["subseteq"] = { conceal = "⊆", class = "relationship", tex = "\\subseteq", alias = "" },
 	["succ"] = { conceal = "≻", class = "relationship", tex = "\\succ", alias = "succ" },
 	["succeq"] = { conceal = "⪰", class = "relationship", tex = "\\succeq", alias = "sueq" },
-	["supset"] = { conceal = "⊃", class = "relationship", tex = "\\supset", alias = "spst" },
+	["supset"] = { conceal = "⊃", class = "relationship", tex = "\\supset", alias = "bus" },
 	["supseteq"] = { conceal = "⊇", class = "relationship", tex = "\\supseteq", alias = "" },
 	["vdash"] = { conceal = "⊢", class = "relationship", tex = "\\vdash", alias = "prf" },
 	["P"] = { conceal = "¶", class = "symbol", tex = "\\P", alias = "" },
@@ -258,5 +284,167 @@ local M = {
 	["vdots"] = { conceal = "⋮", class = "symbol", tex = "\\vdots", alias = "" },
 	["wp"] = { conceal = "℘", class = "symbol", tex = "\\wp", alias = "" },
 	["wr"] = { conceal = "≀", class = "symbol", tex = "\\wr", alias = "" },
+	["mathfk"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathfrak",
+		alias = "fk",
+		onechar_expand = {
+			conceal = function(char)
+				return font.mathfrak[swapcase(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathfrak{]] .. swapcase(char) .. "}"
+			end,
+			alias = "fk(%a)",
+		},
+	},
+	["mathbb"] = {
+		conceal = font.mathbb,
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathbb",
+		alias = "bb",
+		onechar_expand = {
+
+			conceal = function(char)
+				return font.mathbb[swapcase(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathbb{]] .. swapcase(char) .. "}"
+			end,
+			alias = "bb(%a)",
+		},
+	},
+	["mathbbm"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathbbm",
+		alias = "bm",
+		onechar_expand = {
+
+			conceal = function(char)
+				return font.mathbbm[swapcase(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathbbm{]] .. swapcase(char) .. "}"
+			end,
+			alias = "bm(%a)",
+		},
+	},
+	["mathcal"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathcal",
+		alias = "cal",
+		onechar_expand = {
+
+			conceal = function(char)
+				return font.mathcal[string.upper(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathcal{]] .. string.upper(char) .. "}"
+			end,
+			alias = "cal(%a)",
+		},
+	},
+	["mathscr"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathscr",
+		alias = "scr",
+		onechar_expand = {
+
+			conceal = function(char)
+				return font.mathscr[string.upper(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathscr{]] .. string.upper(char) .. "}"
+			end,
+			alias = "scr(%a)",
+		},
+	},
+	["mathbf"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathbf",
+		alias = "bf",
+		onechar_expand = {
+
+			conceal = function(char)
+				return char
+			end,
+			class = "symbol",
+			tex = "\\mathbf{%1}",
+			alias = "bf(%a)",
+		},
+	},
+	["mathrm"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathrm",
+		alias = "rm",
+		onechar_expand = {
+
+			conceal = function(char)
+				return char
+			end,
+			class = "constant",
+			tex = "\\mathrm{%1}",
+			alias = "rm(%a)",
+		},
+	},
+	["text"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\text",
+		alias = "te",
+		onechar_expand = {
+			conceal = function(char)
+				return char
+			end,
+			class = "constant",
+			tex = "\\text{%1}",
+			alias = "te(%a)",
+		},
+	},
 }
+
+local function withonearg(source)
+	local alias = source.alias
+	local conceal = source.conceal
+	local tex = source.tex
+	local class = source.class
+	if string.match(alias, "%%a") then
+		for c in iter_on_alphabet() do
+			table.insert(M, {
+				conceal = type(conceal) == "function" and (conceal(c) or "") or conceal[c],
+				class = class,
+				tex = type(tex) == "function" and tex(c) or string.gsub(tex, "%%1", c),
+				alias = type(alias) == "function" and alias(c) or string.gsub(alias, "%(%%a%)", c),
+			})
+		end
+	else
+		error("can't parse one arg latex item", 3)
+	end
+end
+
+for key, value in pairs(M) do
+	if value.onechar_expand then
+		withonearg(value.onechar_expand)
+	end
+end
 return M
