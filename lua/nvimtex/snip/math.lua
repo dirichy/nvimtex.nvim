@@ -1,6 +1,6 @@
 local M = {}
 
-M.symbol = require("nvimtex.symbol.items")
+M.symbol = require("nvimtex.latex.items")
 M.snip = {
 	["mn"] = "-",
 	["dot"] = "\\dot{<>}",
@@ -35,7 +35,7 @@ M.snip2expand = {
 	["(%a)tr"] = [[%1^{\mathsf{T}}]],
 	["(%a)sta"] = [[%1^{*}]],
 	-- ["frk(%a)"] = [[\mathfrak{%1}]],
-	["(%a)bar"] = [[\overline{%1}]],
+	-- ["(%a)bar"] = [[\overline{%1}]],
 	["(%a)hat"] = [[\hat{%1}]],
 	["(%a)tdl"] = [[\tilde{%1}]],
 	["(%a)vec"] = [[\vec{%1}]],

@@ -201,4 +201,167 @@ M.mathbbm = {
 	["Z"] = "ℤ",
 }
 M.mathbb = M.mathbbm
+local function swapcase(s)
+	return (s:gsub("%a", function(c)
+		if c:match("%l") then
+			return c:upper()
+		else
+			return c:lower()
+		end
+	end))
+end
+M.items = {
+	["mathfk"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathfrak",
+		alias = "fk",
+		onechar_expand = {
+			conceal = function(char)
+				return M.mathfrak[swapcase(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathfrak{]] .. swapcase(char) .. "}"
+			end,
+			alias = "fk(%a)",
+		},
+	},
+	["mathbb"] = {
+		conceal = M.mathbb,
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathbb",
+		alias = "bb",
+		onechar_expand = {
+
+			conceal = function(char)
+				return M.mathbb[swapcase(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathbb{]] .. swapcase(char) .. "}"
+			end,
+			alias = "bb(%a)",
+		},
+	},
+	["mathbbm"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathbbm",
+		alias = "bm",
+		onechar_expand = {
+
+			conceal = function(char)
+				return M.mathbbm[swapcase(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathbbm{]] .. swapcase(char) .. "}"
+			end,
+			alias = "bm(%a)",
+		},
+	},
+	["mathcal"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathcal",
+		alias = "cal",
+		onechar_expand = {
+
+			conceal = function(char)
+				return M.mathcal[string.upper(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathcal{]] .. string.upper(char) .. "}"
+			end,
+			alias = "cal(%a)",
+		},
+	},
+	["mathscr"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathscr",
+		alias = "scr",
+		onechar_expand = {
+
+			conceal = function(char)
+				return M.mathscr[string.upper(char)]
+			end,
+			class = "symbol",
+			tex = function(char)
+				return [[\mathscr{]] .. string.upper(char) .. "}"
+			end,
+			alias = "scr(%a)",
+		},
+	},
+	["mathbf"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathbf",
+		alias = "bf",
+		onechar_expand = {
+
+			conceal = function(char)
+				return char
+			end,
+			class = "symbol",
+			tex = "\\mathbf{%1}",
+			alias = "bf(%a)",
+		},
+	},
+	["mathrm"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\mathrm",
+		alias = "rm",
+		onechar_expand = {
+
+			conceal = function(char)
+				return char
+			end,
+			class = "constant",
+			tex = "\\mathrm{%1}",
+			alias = "rm(%a)",
+		},
+	},
+	["overline"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\overline",
+		alias = "bar",
+		onechar_expand = {
+			conceal = function(char)
+				return char .. "̅"
+			end,
+			class = "math",
+			tex = "\\overline{%1}",
+			alias = "(%a)bar",
+		},
+	},
+	["text"] = {
+		narg = 1,
+		oarg = false,
+		class = "function",
+		tex = "\\text",
+		alias = "te",
+		onechar_expand = {
+			conceal = function(char)
+				return char
+			end,
+			class = "constant",
+			tex = "\\text{%1}",
+			alias = "te(%a)",
+		},
+	},
+}
 return M

@@ -1,5 +1,6 @@
 local M = {}
-M.get_magic_comment = function(key, ific)
+M.get_magic_comment = function(key, ific, buffer)
+	buffer = buffer or 0
 	if ific == nil then
 		ific = true
 	end
@@ -9,7 +10,7 @@ M.get_magic_comment = function(key, ific)
 	local i = 0
 	local value = nil
 	while true do
-		local line = vim.api.nvim_buf_get_lines(0, i, i + 1, false)[1]
+		local line = vim.api.nvim_buf_get_lines(buffer, i, i + 1, false)[1]
 		if string.match(line, "^%%!TEX") then
 			line = string.gsub(line, "^%%!TEX (.*)", "%1")
 			if ific then
@@ -26,4 +27,5 @@ M.get_magic_comment = function(key, ific)
 	end
 	return value
 end
+M.get_documentclass = function(subfile_find_root, buffer) end
 return M

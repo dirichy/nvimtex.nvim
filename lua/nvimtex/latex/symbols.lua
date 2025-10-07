@@ -1,28 +1,3 @@
-local font = require("latex_concealer.filters.mathfont")
-
-local function iter_on_alphabet()
-	local i = string.byte("a") - 1
-	return function()
-		if i == string.byte("z") then
-			i = string.byte("A")
-		elseif i == string.byte("Z") then
-			return
-		else
-			i = i + 1
-		end
-		return string.char(i)
-	end
-end
-
-local function swapcase(s)
-	return (s:gsub("%a", function(c)
-		if c:match("%l") then
-			return c:upper()
-		else
-			return c:lower()
-		end
-	end))
-end
 local M = {
 	["Downarrow"] = { conceal = "⇓", class = "arrow", tex = "\\Downarrow", alias = "" },
 	["Leftarrow"] = { conceal = "⇐", class = "arrow", tex = "\\Leftarrow", alias = "" },
@@ -67,6 +42,7 @@ local M = {
 	["not"] = { conceal = "̸", class = "function", tex = "\\not", alias = "not" },
 	["Chi"] = { conceal = "Χ", class = "greek", tex = "\\Chi", alias = "Chi" },
 	["Delta"] = { conceal = "Δ", class = "greek", tex = "\\Delta", alias = "Del" },
+	["symdiff"] = { conceal = "Δ", class = "operator", tex = "\\symdiff", alias = "sdf" },
 	["Epsilon"] = { conceal = "Ε", class = "greek", tex = "\\Epsilon", alias = "Eps" },
 	["Eta"] = { conceal = "Η", class = "greek", tex = "\\Eta", alias = "Eta" },
 	["Gamma"] = { conceal = "Γ", class = "greek", tex = "\\Gamma", alias = "Gam" },
@@ -116,27 +92,6 @@ local M = {
 	["vartheta"] = { conceal = "ϑ", class = "greek", tex = "\\vartheta", alias = "vthe" },
 	["xi"] = { conceal = "ξ", class = "greek", tex = "\\xi", alias = "xi" },
 	["zeta"] = { conceal = "ζ", class = "greek", tex = "\\zeta", alias = "zet" },
-	["bigcap"] = { conceal = "∩", class = "hugeoperator", tex = "\\bigcap", alias = "bcap" },
-	["bigcirc"] = { conceal = "○", class = "hugeoperator", tex = "\\bigcirc", alias = "" },
-	["bigcup"] = { conceal = "∪", class = "hugeoperator", tex = "\\bigcup", alias = "bcup" },
-	["bigodot"] = { conceal = "⊙", class = "hugeoperator", tex = "\\bigodot", alias = "bodt" },
-	["bigoplus"] = { conceal = "⊕", class = "hugeoperator", tex = "\\bigoplus", alias = "bopl" },
-	["bigotimes"] = { conceal = "⊗", class = "hugeoperator", tex = "\\bigotimes", alias = "boti" },
-	["bigsqcup"] = { conceal = "⊔", class = "hugeoperator", tex = "\\bigsqcup", alias = "bscp" },
-	["bigtriangledown"] = { conceal = "∇", class = "hugeoperator", tex = "\\bigtriangledown", alias = "" },
-	["bigtriangleup"] = { conceal = "∆", class = "hugeoperator", tex = "\\bigtriangleup", alias = "" },
-	["bigvee"] = { conceal = "⋁", class = "hugeoperator", tex = "\\bigvee", alias = "bor" },
-	["bigwedge"] = { conceal = "⋀", class = "hugeoperator", tex = "\\bigwedge", alias = "band" },
-	["idotsint"] = { conceal = "∫⋯∫", class = "hugeoperator", tex = "\\idotsint", alias = "" },
-	["iiiint"] = { conceal = "∬∬", class = "hugeoperator", tex = "\\iiiint", alias = "iiii" },
-	["iiint"] = { conceal = "∭", class = "hugeoperator", tex = "\\iiint", alias = "iiit" },
-	["iint"] = { conceal = "∬", class = "hugeoperator", tex = "\\iint", alias = "iint" },
-	["int"] = { conceal = "∫", class = "hugeoperator", tex = "\\int", alias = "int" },
-	["oiiint"] = { conceal = "∰", class = "hugeoperator", tex = "\\oiiint", alias = "" },
-	["oiint"] = { conceal = "∯", class = "hugeoperator", tex = "\\oiint", alias = "" },
-	["oint"] = { conceal = "∮", class = "hugeoperator", tex = "\\oint", alias = "oint" },
-	["prod"] = { conceal = "∏", class = "hugeoperator", tex = "\\prod", alias = "prod" },
-	["sum"] = { conceal = "∑", class = "hugeoperator", tex = "\\sum", alias = "sum" },
 	["Im"] = { conceal = "ℑ", class = "operator", tex = "\\Im", alias = "im" },
 	["Re"] = { conceal = "ℜ", class = "operator", tex = "\\Re", alias = "re" },
 	["amalg"] = { conceal = "∐", class = "operator", tex = "\\amalg", alias = "" },
@@ -164,8 +119,8 @@ local M = {
 	["sqcup"] = { conceal = "⊔", class = "operator", tex = "\\sqcup", alias = "scup" },
 	["times"] = { conceal = "×", class = "operator", tex = "\\times", alias = "xx" },
 	["triangle"] = { conceal = "∆", class = "operator", tex = "\\triangle", alias = "" },
-	["vee"] = { conceal = "∨", class = "operator", tex = "\\vee", alias = "amax" },
-	["wedge"] = { conceal = "∧", class = "operator", tex = "\\wedge", alias = "amin" },
+	["vee"] = { conceal = "∨", class = "operator", tex = "\\vee", alias = "or" },
+	["wedge"] = { conceal = "∧", class = "operator", tex = "\\wedge", alias = "and" },
 	["arccos"] = { conceal = "arccos", class = "operatorname", tex = "\\arccos", alias = "acos" },
 	["arcsec"] = { conceal = "arcsec", class = "operatorname", tex = "\\arcsec", alias = "asec" },
 	["arcsin"] = { conceal = "arcsin", class = "operatorname", tex = "\\arcsin", alias = "asin" },
@@ -180,18 +135,10 @@ local M = {
 	["dom"] = { conceal = "dom", class = "operatorname", tex = "\\dom", alias = "dom" },
 	["exp"] = { conceal = "exp", class = "operatorname", tex = "\\exp", alias = "exp" },
 	["gcd"] = { conceal = "gcd", class = "operatorname", tex = "\\gcd", alias = "gcd" },
-	["inf"] = { conceal = "inf", class = "operatorname", tex = "\\inf", alias = "inf" },
 	["ker"] = { conceal = "ker", class = "operatorname", tex = "\\ker", alias = "ker" },
-	["lim"] = { conceal = "lim", class = "operatorname", tex = "\\lim", alias = "lim" },
-	["liminf"] = { conceal = "liminf", class = "operatorname", tex = "\\liminf", alias = "lmi" },
-	["limsup"] = { conceal = "limsup", class = "operatorname", tex = "\\limsup", alias = "lms" },
 	["ln"] = { conceal = "ln", class = "operatorname", tex = "\\ln", alias = "ln" },
-	["log"] = { conceal = "log", class = "operatorname", tex = "\\log", alias = "log" },
-	["max"] = { conceal = "max", class = "operatorname", tex = "\\max", alias = "max" },
-	["min"] = { conceal = "min", class = "operatorname", tex = "\\min", alias = "min" },
 	["sgn"] = { conceal = "sgn", class = "operatorname", tex = "\\sgn", alias = "sgn" },
 	["sin"] = { conceal = "sin", class = "operatorname", tex = "\\sin", alias = "sin" },
-	["sup"] = { conceal = "sup", class = "operatorname", tex = "\\sup", alias = "sup" },
 	["tan"] = { conceal = "tan", class = "operatorname", tex = "\\tan", alias = "tan" },
 	["approx"] = { conceal = "≈", class = "relationship", tex = "\\approx", alias = "apx" },
 	["asymp"] = { conceal = "≍", class = "relationship", tex = "\\asymp", alias = "asy" },
@@ -284,167 +231,5 @@ local M = {
 	["vdots"] = { conceal = "⋮", class = "symbol", tex = "\\vdots", alias = "" },
 	["wp"] = { conceal = "℘", class = "symbol", tex = "\\wp", alias = "" },
 	["wr"] = { conceal = "≀", class = "symbol", tex = "\\wr", alias = "" },
-	["mathfk"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathfrak",
-		alias = "fk",
-		onechar_expand = {
-			conceal = function(char)
-				return font.mathfrak[swapcase(char)]
-			end,
-			class = "symbol",
-			tex = function(char)
-				return [[\mathfrak{]] .. swapcase(char) .. "}"
-			end,
-			alias = "fk(%a)",
-		},
-	},
-	["mathbb"] = {
-		conceal = font.mathbb,
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathbb",
-		alias = "bb",
-		onechar_expand = {
-
-			conceal = function(char)
-				return font.mathbb[swapcase(char)]
-			end,
-			class = "symbol",
-			tex = function(char)
-				return [[\mathbb{]] .. swapcase(char) .. "}"
-			end,
-			alias = "bb(%a)",
-		},
-	},
-	["mathbbm"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathbbm",
-		alias = "bm",
-		onechar_expand = {
-
-			conceal = function(char)
-				return font.mathbbm[swapcase(char)]
-			end,
-			class = "symbol",
-			tex = function(char)
-				return [[\mathbbm{]] .. swapcase(char) .. "}"
-			end,
-			alias = "bm(%a)",
-		},
-	},
-	["mathcal"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathcal",
-		alias = "cal",
-		onechar_expand = {
-
-			conceal = function(char)
-				return font.mathcal[string.upper(char)]
-			end,
-			class = "symbol",
-			tex = function(char)
-				return [[\mathcal{]] .. string.upper(char) .. "}"
-			end,
-			alias = "cal(%a)",
-		},
-	},
-	["mathscr"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathscr",
-		alias = "scr",
-		onechar_expand = {
-
-			conceal = function(char)
-				return font.mathscr[string.upper(char)]
-			end,
-			class = "symbol",
-			tex = function(char)
-				return [[\mathscr{]] .. string.upper(char) .. "}"
-			end,
-			alias = "scr(%a)",
-		},
-	},
-	["mathbf"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathbf",
-		alias = "bf",
-		onechar_expand = {
-
-			conceal = function(char)
-				return char
-			end,
-			class = "symbol",
-			tex = "\\mathbf{%1}",
-			alias = "bf(%a)",
-		},
-	},
-	["mathrm"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\mathrm",
-		alias = "rm",
-		onechar_expand = {
-
-			conceal = function(char)
-				return char
-			end,
-			class = "constant",
-			tex = "\\mathrm{%1}",
-			alias = "rm(%a)",
-		},
-	},
-	["text"] = {
-		narg = 1,
-		oarg = false,
-		class = "function",
-		tex = "\\text",
-		alias = "te",
-		onechar_expand = {
-			conceal = function(char)
-				return char
-			end,
-			class = "constant",
-			tex = "\\text{%1}",
-			alias = "te(%a)",
-		},
-	},
 }
-
-local function withonearg(source)
-	local alias = source.alias
-	local conceal = source.conceal
-	local tex = source.tex
-	local class = source.class
-	if string.match(alias, "%%a") then
-		for c in iter_on_alphabet() do
-			table.insert(M, {
-				conceal = type(conceal) == "function" and (conceal(c) or "") or conceal[c],
-				class = class,
-				tex = type(tex) == "function" and tex(c) or string.gsub(tex, "%%1", c),
-				alias = type(alias) == "function" and alias(c) or string.gsub(alias, "%(%%a%)", c),
-			})
-		end
-	else
-		error("can't parse one arg latex item", 3)
-	end
-end
-
-for key, value in pairs(M) do
-	if value.onechar_expand then
-		withonearg(value.onechar_expand)
-	end
-end
 return M

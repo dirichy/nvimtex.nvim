@@ -1,4 +1,4 @@
-local symbol = require("nvimtex.symbol.items")
+local symbol = require("nvimtex.latex.items")
 local hl = require("nvimtex.highlight")
 local source = {}
 
