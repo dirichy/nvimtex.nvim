@@ -22,10 +22,10 @@ function M.im_enable()
 	while node do
 		if util.TEXT_NODES[node:type()] then
 			-- For \text{}
-			local parent = util.node_parent(node)
-			if parent and util.MATH_NODES[parent:type()] then
-				return false
-			end
+			-- local parent = util.node_parent(node)
+			-- if parent and util.MATH_NODES[parent:type()] then
+			-- 	return false
+			-- end
 			return true
 		elseif util.MATH_NODES[node:type()] then
 			return false
@@ -47,21 +47,27 @@ function M.in_comment()
 	end
 	return false
 end
-function M._in_math()
+function M.in_math()
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	cursor[1] = cursor[1] - 1
 	local node = util.get_node_at_cursor()
 	while node do
 		if util.TEXT_NODES[node:type()] then
 			return false
 		elseif util.MATH_NODES[node:type()] then
+			local x, y = node:start()
+			if x == cursor[1] and y == cursor[2] then
+				return false
+			end
 			return true
 		end
 		node = util.node_parent(node)
 	end
 	return false
 end
-function M.in_math()
-	return M._in_math() and not M.in_cmd_arg("tipa", 0, true)
-end
+-- function M.in_math()
+-- 	return M._in_math() and not M.in_cmd_arg("tipa", 0, true)
+-- end
 ---judge if the cursor is in some certain environment.
 ---when check_ancestor is false, will only check the nearest env_nodes.
 ---when check_ancestor is true, will check all ancestors.
