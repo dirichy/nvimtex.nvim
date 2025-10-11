@@ -18,6 +18,8 @@ function M.in_text()
 	return true
 end
 function M.im_enable()
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	cursor[1] = cursor[1] - 1
 	local node = util.get_node_at_cursor()
 	while node do
 		if util.TEXT_NODES[node:type()] then
@@ -28,6 +30,10 @@ function M.im_enable()
 			-- end
 			return true
 		elseif util.MATH_NODES[node:type()] then
+			local x, y = node:start()
+			if x == cursor[1] and y == cursor[2] then
+				return true
+			end
 			return false
 		elseif util.ENG_NODES[node:type()] then
 			return false
