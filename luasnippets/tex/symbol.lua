@@ -72,6 +72,7 @@ local makesnip2 = function(_, snip, _, con, out)
 end
 
 local cmds = require("nvimtex.snip.math").luasnip
+local autocmds = require("nvimtex.snip.math").snip
 local function makecondition(tab)
 	return function(_, _, captures)
 		return tex.in_math() and tab[captures[1]]
@@ -90,5 +91,18 @@ local M = {
 	s({ trig = "%f[%a\\](%a%a%a?%a?%a?)", wordTrig = false, regTrig = true, priority = 500 }, {
 		d(1, makesnip, {}, { user_args = { cmds } }),
 	}, { condition = makecondition(cmds) }),
+	s({
+		trig = "%f[%a\\](%a%a%a?%a?%a?)",
+		wordTrig = false,
+		regTrig = true,
+		priority = 500,
+		snippetType = "autosnippet",
+	}, {
+		d(1, makesnip, {}, { user_args = { autocmds } }),
+	}, {
+		condition = function(_, _, captures)
+			return tex.in_math() and autocmds[captures[1]] and string.match(cmds[captures[1]], "<>")
+		end,
+	}),
 }
 return M

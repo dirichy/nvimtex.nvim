@@ -2,31 +2,22 @@ local M = {}
 
 M.symbol = require("nvimtex.latex.items")
 M.snip = {
-	["mn"] = "-",
+	-- ["mn"] = "-",
 	["dot"] = "\\dot{<>}",
 	-- ["fun"] = "\\fun{<>}{<>}",
 	["deq"] = "\\overset{d}{=}",
-	["sta"] = "^{*}",
-	["rhs"] = "\\mathrm{R.H.S}",
 	["sqrt"] = "\\sqrt{<>}",
 	["ceil"] = "\\ceil{<>}",
 	["aeeq"] = "\\overset{\\text{a.e.}}{=}",
 	["hat"] = "\\hat{<>}",
 	["abs"] = "|<>|",
-	["lhs"] = "\\mathrm{L.H.S}",
-	["pto"] = "\\overset{\\mathbb{P}}{\\to}",
-	["asto"] = "\\overset{\\text{a.s.}}{\\to}",
 	["udl"] = "\\underline{<>}",
 	["lgd"] = "\\legendre{<>}{<>}",
-	["ad"] = "+",
 	["tdl"] = "\\tidle{<>}",
 	["flor"] = "\\floor{<>}",
-	["aseq"] = "\\overset{\\text{a.s.}}{=}",
 	["bar"] = "\\overline{<>}",
-	["pmat"] = "pmat",
 	["cob"] = "\\binom{<>}{<>}",
 	["res"] = "\\res{<>}{<>}",
-	["dto"] = "\\overset{d}{\\to}",
 	["pmod"] = "\\pmod{<>}",
 	["vec"] = "\\vec{<>}",
 	["norm"] = "\\norm{<>}",
@@ -42,7 +33,7 @@ M.snip2expand = {
 	["(%a)dot"] = [[\dot{%1}]],
 	["(%a)cob"] = [[\binom{%1}{<>}]],
 }
-M.luasnip = M.snip
+M.luasnip = vim.deepcopy(M.snip)
 
 for _, value in pairs(M.symbol) do
 	local narg = value.narg or 0

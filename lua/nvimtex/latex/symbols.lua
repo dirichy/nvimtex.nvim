@@ -1,4 +1,13 @@
 local M = {
+	{ conceal = "-", alias = "mn", tex = "-", class = "symbol" },
+	{ alias = "sta", tex = "^{*}", class = "symbol" },
+	{ alias = "rhs", tex = "\\mathrm{R.H.S}", class = "symbol" },
+	{ alias = "lhs", tex = "\\mathrm{L.H.S}", class = "symbol" },
+	{ alias = "ad", tex = "+", class = "symbol" },
+	{ alias = "aseq", tex = "\\overset{\\text{a.s.}}{=}", class = "symbol" },
+	{ alias = "dto", tex = "\\overset{d}{\\to}", class = "symbol" },
+	{ alias = "pto", tex = "\\overset{\\mathbb{P}}{\\to}", class = "symbol" },
+	{ alias = "asto", tex = "\\overset{\\text{a.s.}}{\\to}", class = "symbol" },
 	["Downarrow"] = { conceal = "⇓", class = "arrow", tex = "\\Downarrow", alias = "" },
 	["Leftarrow"] = { conceal = "⇐", class = "arrow", tex = "\\Leftarrow", alias = "" },
 	["Leftrightarrow"] = { conceal = "⇔", class = "arrow", tex = "\\Leftrightarrow", alias = "" },
