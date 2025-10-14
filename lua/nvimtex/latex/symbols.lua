@@ -1,4 +1,5 @@
 local M = {
+	{ conceal = "=", alias = "eq", tex = "=", class = "symbol" },
 	{ conceal = "-", alias = "mn", tex = "-", class = "symbol" },
 	{ alias = "sta", tex = "^{*}", class = "symbol" },
 	{ alias = "rhs", tex = "\\mathrm{R.H.S}", class = "symbol" },
@@ -51,6 +52,7 @@ local M = {
 	["not"] = { conceal = "̸", class = "function", tex = "\\not", alias = "not" },
 	["Chi"] = { conceal = "Χ", class = "greek", tex = "\\Chi", alias = "Chi" },
 	["Delta"] = { conceal = "Δ", class = "greek", tex = "\\Delta", alias = "Del" },
+	["symdiff"] = { conceal = "Δ", class = "Operator", tex = "\\symdiff", alias = "syd" },
 	["symdiff"] = { conceal = "Δ", class = "operator", tex = "\\symdiff", alias = "sdf" },
 	["Epsilon"] = { conceal = "Ε", class = "greek", tex = "\\Epsilon", alias = "Eps" },
 	["Eta"] = { conceal = "Η", class = "greek", tex = "\\Eta", alias = "Eta" },
