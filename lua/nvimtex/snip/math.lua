@@ -21,6 +21,7 @@ M.snip = {
 	["pmod"] = "\\pmod{<>}",
 	["vec"] = "\\vec{<>}",
 	["norm"] = "\\norm{<>}",
+	["dia"] = "\\diag(<>)",
 }
 M.snip2expand = {
 	["(%a)tr"] = [[%1^{\mathsf{T}}]],
