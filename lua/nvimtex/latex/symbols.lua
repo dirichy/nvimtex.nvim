@@ -2,6 +2,7 @@ local M = {
 	{ conceal = "=", alias = "eq", tex = "=", class = "symbol" },
 	{ conceal = "-", alias = "mn", tex = "-", class = "symbol" },
 	{ alias = "sta", tex = "^{*}", class = "symbol" },
+	{ alias = "iid", tex = "\\mathrm{i.i.d.}", class = "symbol" },
 	{ alias = "rhs", tex = "\\mathrm{R.H.S}", class = "symbol" },
 	{ alias = "lhs", tex = "\\mathrm{L.H.S}", class = "symbol" },
 	{ alias = "ad", tex = "+", class = "symbol" },
