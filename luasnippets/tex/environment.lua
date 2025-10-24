@@ -43,6 +43,7 @@ local envs = {
 	th = { name = "theorem", condition = 2, label = "the" },
 	tp = { name = "tikzpicture", condition = 2 },
 	pp = { name = "proposition", condition = 2, label = "pp" },
+	re = { name = "remark", condition = 2, label = "re" },
 }
 local make_label = function(_, snip)
 	local env = envs[snip.captures[1]]
