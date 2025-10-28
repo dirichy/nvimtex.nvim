@@ -17,6 +17,9 @@ function M.in_text()
 	end
 	return true
 end
+local eng_cmd = {
+	eng = true,
+}
 function M.im_enable()
 	local cursor = vim.api.nvim_win_get_cursor(0)
 	cursor[1] = cursor[1] - 1
@@ -37,6 +40,12 @@ function M.im_enable()
 			return false
 		elseif util.ENG_NODES[node:type()] then
 			return false
+		elseif node:type() == "generic_command" then
+			local n = node:field("command")[1]
+			n = vim.treesitter.get_node_text(n, 0, {}):sub(2, -1)
+			if eng_cmd[n] then
+				return false
+			end
 		end
 		node = util.node_parent(node)
 	end
