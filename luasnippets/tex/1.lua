@@ -1,8 +1,16 @@
 local ls = require("luasnip")
 local tex = require("nvimtex.conditions.luasnip")
+local puncts = {
+	["<Esc>"] = true,
+	["`"] = true,
+	["/"] = true,
+	['"'] = true,
+	["."] = true,
+	["'"] = true,
+}
 vim.on_key(function(key, typed)
 	if vim.fn.mode() == "i" and tex.in_math() then
-		if vim.fn.keytrans(typed):match("[^%a]") then
+		if puncts[vim.fn.keytrans(typed)] then
 			ls.expand()
 		end
 	end
