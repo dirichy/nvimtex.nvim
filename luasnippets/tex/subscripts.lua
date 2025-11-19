@@ -8,213 +8,264 @@ local autosnippet = ls.extend_decorator.apply(s, { snippetType = "autosnippet" }
 -- [
 -- personal imports
 -- ]
-local tex =require("nvimtex.conditions.luasnip")
+local tex = require("nvimtex.conditions.luasnip")
 M = {
-  autosnippet(
-    {
-      trig = "([%a%)%]])(%d)",
-      wordTrig = true,
-      regTrig = true,
-      hidden = true,
-    },
-    fmta(
-      [[
+	s(
+		{
+			trig = "([%a%)%]])(%d+)",
+			wordTrig = true,
+			regTrig = true,
+			hidden = true,
+		},
+		fmta(
+			[[
+   <>_{<>}<>
+    ]],
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math, show_condition = tex.in_math }
+	),
+	autosnippet(
+		{
+			trig = "([%a%)%]])(%d+)([^%d])",
+			wordTrig = true,
+			regTrig = true,
+			hidden = true,
+		},
+		fmta(
+			[[
+   <>_{<>}<><>
+    ]],
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				f(function(_, snip)
+					return snip.captures[3]
+				end),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math, show_condition = tex.in_math }
+	),
+	s(
+		{
+			trig = "(\\[^%(%[][%a%d%[%]{}]-[%a}%]])(%d+)",
+			regTrig = true,
+			hidden = true,
+		},
+		fmta(
+			[[
+   <>_{<>}<>
+    ]],
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math }
+	),
+	autosnippet(
+		{
+			trig = "(\\[^%(%[][%a%d%[%]{}]-[%a}%]])(%d+)([^%d])",
+			regTrig = true,
+			hidden = true,
+		},
+		fmta(
+			[[
+   <>_<><><>
+    ]],
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				f(function(_, snip)
+					return snip.captures[3]
+				end),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math }
+	),
+	-- autosnippet(
+	-- 	{
+	-- 		trig = "([%a%)}%]])_([^{\\][%d%a%+%-]+) ",
+	-- 		regTrig = true,
+	-- 		wordTrig = false,
+	-- 		hidden = true,
+	-- 	},
+	-- 	fmta(
+	-- 		[[
+	--   <>_{<>} <>
+	--    ]],
+	-- 		{
+	-- 			f(function(_, snip)
+	-- 				return snip.captures[1]
+	-- 			end),
+	-- 			f(function(_, snip)
+	-- 				return snip.captures[2]
+	-- 			end),
+	-- 			i(0),
+	-- 		}
+	-- 	),
+	-- 	{ condition = tex.in_math }
+	-- ),
+	-- autosnippet(
+	-- 	{
+	-- 		trig = "([%a%d%)}%]])^([^{\\][%d%a%+%-]+) ",
+	-- 		regTrig = true,
+	-- 		wordTrig = false,
+	-- 		hidden = true,
+	-- 	},
+	-- 	fmta(
+	-- 		[[
+	--   <>^{<>} <>
+	--    ]],
+	-- 		{
+	-- 			f(function(_, snip)
+	-- 				return snip.captures[1]
+	-- 			end),
+	-- 			f(function(_, snip)
+	-- 				return snip.captures[2]
+	-- 			end),
+	-- 			i(0),
+	-- 		}
+	-- 	),
+	-- 	{ condition = tex.in_math }
+	-- ),
+	autosnippet(
+		{
+			trig = "([%a%)}%]|])%.([%a%d%+%-%*])",
+			regTrig = true,
+			wordTrig = false,
+			hidden = true,
+		},
+		fmta(
+			[[
    <>_<><>
     ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math, show_condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "(\\[^%(%[][%a%d%[%]{}]-[%a}%]])(%d)",
-      regTrig = true,
-      hidden = true,
-    },
-    fmta(
-      [[
-   <>_<><>
-    ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%)}%]])_([^{\\][%d%a%+%-]+) ",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
-   <>_{<>} <>
-    ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%d%)}%]])^([^{\\][%d%a%+%-]+) ",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
-   <>^{<>} <>
-    ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%)}%]|])%.([%a%d])",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
-   <>_<><>
-    ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%d%)}%]|])'([%a%d%*])",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math }
+	),
+	autosnippet(
+		{
+			trig = "([%a%d%)}%]|])'([%a%d%*%+%-])",
+			regTrig = true,
+			wordTrig = false,
+			hidden = true,
+		},
+		fmta(
+			[[
    <>^<><>
     ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%)}%]|])%.%.([^%.%s])",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math }
+	),
+	autosnippet(
+		{
+			trig = "([%a%)}%]|])%.%.([^%.%s])",
+			regTrig = true,
+			wordTrig = false,
+			hidden = true,
+		},
+		fmta(
+			[[
    <>_{<><>}<>
     ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(1),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%d%)}%]|])''([^%.%s])",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				i(1),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math }
+	),
+	autosnippet(
+		{
+			trig = "([%a%d%)}%]|])''([^%.%s])",
+			regTrig = true,
+			wordTrig = false,
+			hidden = true,
+		},
+		fmta(
+			[[
    <>^{<><>}<>
     ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        f(function(_, snip)
-          return snip.captures[2]
-        end),
-        i(1),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math }
-  ),
-  autosnippet(
-    {
-      trig = "([%a%d%)}%]|])`",
-      regTrig = true,
-      wordTrig = false,
-      hidden = true,
-    },
-    fmta(
-      [[
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				f(function(_, snip)
+					return snip.captures[2]
+				end),
+				i(1),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math }
+	),
+	autosnippet(
+		{
+			trig = "([%a%d%)}%]|])`",
+			regTrig = true,
+			wordTrig = false,
+			hidden = true,
+		},
+		fmta(
+			[[
    <>^{(<>)}<>
     ]],
-      {
-        f(function(_, snip)
-          return snip.captures[1]
-        end),
-        i(1),
-        i(0),
-      }
-    ),
-    { condition = tex.in_math, show_condition = tex.in_math }
-  ),
+			{
+				f(function(_, snip)
+					return snip.captures[1]
+				end),
+				i(1),
+				i(0),
+			}
+		),
+		{ condition = tex.in_math, show_condition = tex.in_math }
+	),
 }
 return M
