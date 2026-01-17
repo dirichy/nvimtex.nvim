@@ -9,6 +9,8 @@ local default_args = function(path)
 	local servername = vim.v.servername
 
 	local args = {
+		"--instance-name",
+		vim.fn.sha256(servername),
 		"--inverse-search",
 		"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
 		"--forward-search-file",
@@ -18,10 +20,9 @@ local default_args = function(path)
 		cwd .. "/" .. jobname .. ".pdf",
 	}
 	local command = "sioyek"
-	vim.print(cwd, args)
 	return { command = command, cwd = cwd, args = args }
 end
-local Job = require("plenary.job")
+local handle = nil
 local function sioyek(args)
 	if not vim.fn.executable("sioyek") then
 		error("sioyek is not executable, make sure to install it and add it into PATH")
@@ -33,11 +34,9 @@ local function sioyek(args)
 	end
 	path = path or vim.fn.expand("%:p")
 	local opts = vim.tbl_deep_extend("force", default_args(path), args or {})
-	-- local sioyek_is_loaded = vim.fn.system('ps aux| grep "[s]ioyek"')
-	-- sioyek_is_loaded = sioyek_is_loaded:gsub("%s", "")
-	-- sioyek_is_loaded = #sioyek_is_loaded ~= 0
-	-- if not sioyek_is_loaded then
-	Job:new(opts):start()
+	handle = vim.uv.spawn("sioyek", opts)
+	assert(handle, "can't open sioyek")
+	return handle
 	-- sioyek_window_opened = true
 	-- return
 	-- end
