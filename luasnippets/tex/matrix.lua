@@ -13,19 +13,33 @@ local fmta = require("luasnip.extras.fmt").fmta
 local autosnippet = ls.extend_decorator.apply(s, { snippetType = "autosnippet" })
 local line_begin = require("luasnip.extras.expand_conditions").line_begin
 local latex = require("nvimtex.conditions.luasnip")
-latex.in_table = function()
-	return false
-end
 local function get_column_in_tblr()
-	local curcol = vim.api.nvim_win_get_cursor(0)[1]
-	local line = ""
-	while curcol > 1 do
-		line = vim.api.nvim_buf_get_lines(0, curcol - 1, curcol, false)[1]
-		if string.match(line, "^\\begin{tblr}") then
-			return tonumber(string.match(line, "%%!column%s*=%s*(.*)$"))
-		end
-		curcol = curcol - 1
+	local table_node = latex.in_table()
+	if not table_node then
+		return ""
 	end
+	local env_name = table_node.env_name
+	local colspec
+	-- if env_name == "tblr" then
+	colspec = table_node.args[1]
+	local match = string.match(colspec, "colspec%s*=%s*(%b{})")
+	if match then
+		colspec = match:sub(2, -2)
+	end
+	colspec = string.gsub(colspec, "%b[]", ""):gsub("%b{}", ""):gsub("|", "")
+	return colspec:len()
+	-- elseif env_name == "array" then
+	-- 	colspec = table_node.args[1]
+	-- end
+	-- local curcol = vim.api.nvim_win_get_cursor(0)[1]
+	-- local line = ""
+	-- while curcol > 1 do
+	-- 	line = vim.api.nvim_buf_get_lines(0, curcol - 1, curcol, false)[1]
+	-- 	if string.match(line, "^\\begin{tblr}") then
+	-- 		return tonumber(string.match(line, "%%!column%s*=%s*(.*)$"))
+	-- 	end
+	-- 	curcol = curcol - 1
+	-- end
 end
 local generate_oneline = function(col)
 	if not col or col == 0 then

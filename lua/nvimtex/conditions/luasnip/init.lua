@@ -106,7 +106,7 @@ function M.in_env(env_name, check_ancestor)
 			name_node = node:field("begin")[1]:field("name")[1]
 			name = vim.treesitter.get_node_text(name_node, buf):match("[A-Za-z]+")
 			if env_name[name] then
-				local result = { env_name = name, args = {} }
+				local result = { env_name = name, args = {}, node = node }
 				local begin_node = node:field("begin")[1]
 				local optional_arg_node = begin_node:field("options")[1]
 				result.optional_arg = optional_arg_node
@@ -211,6 +211,6 @@ function M.in_item()
 	return M.in_env({ "itemize", "enumerate" }, false)
 end
 function M.in_table()
-	return M.in_env({ "array", "tblr" }, false)
+	return M.in_env({ "array", "tblr", "tabular" }, false)
 end
 return M
