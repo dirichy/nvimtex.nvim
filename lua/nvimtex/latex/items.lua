@@ -1,4 +1,4 @@
--- local font = require("nvimtex.latex.mathfont")
+-- local font = require("nvimtex.latex.mathstyle")
 
 local function iter_on_alphabet()
 	local i = string.byte("a") - 1
@@ -18,7 +18,7 @@ local M = vim.tbl_extend(
 	{},
 	require("nvimtex.latex.symbols"),
 	require("nvimtex.latex.hugeoperator").items,
-	require("nvimtex.latex.mathfont").items
+	require("nvimtex.latex.mathstyle").items
 )
 
 local function withonearg(source)

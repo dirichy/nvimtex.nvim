@@ -2,7 +2,7 @@ local parser = require("nvimtex.parser")
 local util = require("nvimtex.conditions.util")
 local LNode = require("nvimtex.parser.lnode")
 local M = {}
----@param node LNode
+---@param node Nvimtex.LNode
 ---@return table?
 local function node2range(lnode)
 	if not lnode then

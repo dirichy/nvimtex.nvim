@@ -1,4 +1,4 @@
-local mathfont = require("nvimtex.latex.mathfont")
+local mathfont = require("nvimtex.latex.mathstyle")
 local M = {
 	mathbb = {
 		conceal = mathfont.mathbb,

@@ -74,15 +74,12 @@ function M.in_math()
 			if x == cursor[1] and y == cursor[2] then
 				return false
 			end
-			return true
+			return node
 		end
 		node = util.node_parent(node)
 	end
 	return false
 end
--- function M.in_math()
--- 	return M._in_math() and not M.in_cmd_arg("tipa", 0, true)
--- end
 ---judge if the cursor is in some certain environment.
 ---when check_ancestor is false, will only check the nearest env_nodes.
 ---when check_ancestor is true, will check all ancestors.

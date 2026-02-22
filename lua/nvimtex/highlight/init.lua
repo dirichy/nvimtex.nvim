@@ -1,5 +1,8 @@
+local rainbow = { "Special", "Function", "Identifier", "ErrorMsg", "DiagnosticHint", "Normal" }
 return {
-	rainbow = { "Special", "Operator", "ErrorMsg", "DiagnosticHint" },
+	rainbow = function(index)
+		return rainbow[index % #rainbow + 1]
+	end,
 	constant = "Constant",
 	symbol = "Special",
 	reference = "Special",
@@ -27,5 +30,5 @@ return {
 	footnotemark = "Special",
 	error = "ErrorMsg",
 	script = "Identifier",
-	default = {},
+	default = "MathZone",
 }

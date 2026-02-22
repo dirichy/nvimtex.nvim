@@ -1,11 +1,12 @@
----@alias LNode _LNode|TSNode
----@class _LNode
+---@alias Nvimtex.LNode Nvimtex._LNode|TSNode
+---@class Nvimtex._LNode
 ---@field _range Range6
----@field _field table <string,LNode[]>
----@field _childrens LNode[]
+---@field _field table <string,Nvimtex.LNode[]>
+---@field _childrens Nvimtex.LNode[]
 ---@field _type string
 local _LNode = {
 	_field = {},
+	_index_2_field = {},
 	_childrens = {},
 	_type = "",
 }
@@ -13,7 +14,7 @@ _LNode.__index = _LNode
 
 --- Returns a list of all the node's children that have the given field name.
 --- @param name string
---- @return LNode[]
+--- @return Nvimtex.LNode[]
 function _LNode:field(name)
 	return self._field[name] or {}
 end
@@ -21,6 +22,29 @@ end
 ---@return string
 function _LNode:type()
 	return self._type
+end
+
+function _LNode:contains(a2, b2, c2, d2)
+	if not b2 then
+		local cursor = vim.api.nvim_win_get_cursor(a2 or 0)
+		a2, b2 = cursor[1] - 1, cursor[2]
+	end
+	if not d2 then
+		c2, d2 = a2, b2 + 1
+	end
+	local a1, b1, c1, d1 = self:range()
+	return (a1 < a2 or a1 == a2 and b1 <= b2) and (c2 < c1 or c2 == c1 and d2 <= d1)
+end
+
+--- get root node of a buffer
+---@param buffer number
+---@return Nvimtex.LNode?
+function _LNode.root(buffer)
+	local tree = vim.treesitter.get_parser(buffer, "latex")
+	if tree and tree:trees() and tree:trees()[1] then
+		return tree:trees()[1]:root()
+	end
+	return nil
 end
 
 -- --- @return _LNode?
@@ -52,12 +76,12 @@ end
 -- they are named or not.
 -- Returns the child node plus the eventual field name corresponding to this
 -- child node.
---- @return fun(): LNode?
+--- @return fun(): Nvimtex.LNode?,string?
 function _LNode:iter_children()
 	local index = 0
 	return function()
 		index = index + 1
-		return self._childrens[index]
+		return self._childrens[index], self._index_2_field[index]
 	end
 end
 
@@ -70,7 +94,7 @@ end
 --- Get the node's child at the given {index}, where zero represents the first
 --- child.
 --- @param index integer
---- @return LNode?
+--- @return Nvimtex.LNode?
 function _LNode:child(index)
 	if index >= 0 then
 		return self._childrens[index + 1]
@@ -157,8 +181,9 @@ end
 --- - end row
 --- - end column
 --- - end byte (if {include_bytes} is `true`)
+--- @param include_bytes boolean?
 --- @return integer, integer, integer, integer
---- @overload fun(include_bytes:true): integer, integer, integer, integer,integer,integer
+--- @overload fun(self:Nvimtex.LNode,include_bytes:true): integer, integer, integer, integer,integer,integer
 function _LNode:range(include_bytes)
 	if include_bytes then
 		return self._range[1], self._range[2], self._range[3], self._range[4], self._range[5], self._range[6]
@@ -167,6 +192,15 @@ function _LNode:range(include_bytes)
 end
 --
 --
+--- force change range of a LNode
+---@param a integer
+---@param b integer
+---@param x integer
+---@param c integer
+---@param d integer
+---@param y integer
+---@overload fun(self:Nvimtex.LNode,node:Nvimtex.LNode)
+---@overload fun(self:Nvimtex.LNode,range:integer[])
 function _LNode:set_range(a, b, x, c, d, y)
 	if type(a) == "userdata" then
 		a, b, x, c, d, y = a:range(true)
@@ -178,6 +212,12 @@ function _LNode:set_range(a, b, x, c, d, y)
 	self._range = { a, b, x, c, d, y }
 end
 
+--- force change range of a LNode
+---@param a integer
+---@param b integer
+---@param x integer
+---@overload fun(self:Nvimtex.LNode,node:Nvimtex.LNode)
+---@overload fun(self:Nvimtex.LNode,range:integer[])
 function _LNode:set_start(a, b, x)
 	if type(a) == "userdata" then
 		a, b, x = a:start()
@@ -194,7 +234,17 @@ function _LNode:set_start(a, b, x)
 	self._range[3] = x
 end
 
+--- force change range of a LNode
+---@param a integer
+---@param b integer
+---@param x integer
+---@overload fun(self:Nvimtex.LNode,node:Nvimtex.LNode)
+---@overload fun(self:Nvimtex.LNode,range:integer[])
+---@overload fun(self:Nvimtex.LNode)
 function _LNode:set_end(a, b, x)
+	if not a then
+		a = self._childrens[#self._childrens]
+	end
 	if type(a) == "userdata" then
 		a, b, x = a:end_()
 	end
@@ -211,31 +261,33 @@ function _LNode:set_end(a, b, x)
 end
 
 --- Check if {node} refers to the same node within the same tree.
---- @param node _LNode
+--- @param node Nvimtex._LNode
 --- @return boolean
 function _LNode:equal(node)
 	return self == node
 end
 
----@param node_type string|LNode?
----@return _LNode
+---@param node_type string|Nvimtex.LNode?
+---@return Nvimtex._LNode
 function _LNode:new(node_type, opt)
 	if type(node_type) == "userdata" then
-		local lnode = setmetatable({ _type = node_type:type(), _childrens = {}, _field = {}, _range = {} }, _LNode)
+		local lnode = setmetatable(
+			{ _type = node_type:type(), _childrens = {}, _field = {}, _range = {}, _index_2_field = {} },
+			_LNode
+		)
 		lnode:set_range(node_type)
 		for node, field in node_type:iter_children() do
-			lnode._childrens[#lnode._childrens + 1] = node
-			if field then
-				lnode._field[field] = lnode._field[field] or {}
-				table.insert(lnode._field[field], node)
-			end
+			lnode:add_child(node, field)
 		end
 		return lnode
 	end
 	if type(node_type) == "table" then
 		return node_type
 	end
-	return setmetatable({ _type = node_type or "", _childrens = {}, _field = {}, _range = {} }, _LNode)
+	return setmetatable(
+		{ _type = node_type or "", _childrens = {}, _field = {}, _range = {}, _index_2_field = {} },
+		_LNode
+	)
 end
 
 function _LNode:add_child(child, field, index)
@@ -244,10 +296,12 @@ function _LNode:add_child(child, field, index)
 		table.insert(self._childrens, index, child)
 	else
 		table.insert(self._childrens, child)
+		index = #self._childrens
 	end
 	-- child._parent = self
 	if field then
 		self._field[field] = self._field[field] or {}
+		self._index_2_field[index] = field
 		table.insert(self._field[field], child)
 	end
 end
@@ -268,7 +322,7 @@ end
 ---1t
 function _LNode.remove_bracket(lnode)
 	local ntype = lnode:type()
-	if string.match(ntype, "^curly_group") or ntype == "brack_group" then
+	if string.match(ntype, "^curly_group") or string.match(ntype, "^brack_group") then
 		lnode = _LNode:new(lnode)
 		table.remove(lnode._childrens, 1)
 		table.remove(lnode._childrens)
