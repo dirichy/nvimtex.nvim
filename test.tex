@@ -1,0 +1,71 @@
+%arara: xelatex
+\documentclass[aa,bb=cc,dd]{ctexart}
+\usepackage[aa,bb=cc,dd]{amsmath,amssymb,amsthm,bbm}
+\usepackage{luacode}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{problem}{Problem}
+\newtheorem{solution}{Solution}
+\everymath{\displaystyle}
+\newlength\inlineHeight
+\newlength\inlineWidth
+\long\def\(#1\){%
+  \settoheight{\inlineHeight}{$#1$}%
+  \settowidth{\inlineWidth}{$#1$}%
+  \ifdim \inlineWidth > 0.5\textwidth%
+  $$#1$$%
+  \else%
+  \ifdim \inlineHeight > 1.5em%
+  $$#1$$%
+  \else%
+  $#1$%
+  \fi%
+  \fi%
+}
+\newcommand{\testd}[2][1]{
+  \ifmmode
+  \mathrm{#1#2}
+  \else
+  #1#2
+  \fi
+}
+%nvimtex: enable_parser_command_definition
+\newcommand{\testa}[9][\mathbb{ABC}]{\mathrm{#1#2#3#4#5#6#7#8#9}}
+\newcommand{\testb}[2][1]{
+  \ifmmode
+  \mathrm{#1#2}
+  \else
+  #1#2
+  \fi
+}
+%nvimtex: disable_parser_command_definition
+\newcommand{\testc}[2][1]{
+  \ifmmode
+  \mathrm{#1#2}
+  \else
+  #1#2
+  \fi
+}
+\begin{document}
+\(\testa[11]{1}{2}{3}{4}5678 \alpha \beta  \testa abcdefgh\)
+\(\testb{AAA} \)
+\(\testc{AAA} \)
+\(\testd{AAA} \)
+\begin{aaa}[bbb]
+
+\end{aaa}
+aaa aaa \(a \alpha \beta  \) aaaa
+\(\alpha \beta\)
+aaa \(\not \ni \in \)
+\(\not 1 \)
+a\(\alpha \beta \gamma \not a \)
+\(\not a \)
+aaaaaaaaaaaa\(\mathbb{A}  \alpha \alpha \alpha \alpha\)
+12345678901234\(\alpha \alpha \alpha \beta \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha \alpha apl apl apl apl \alpha \alpha \alpha \alpha \alpha \alpha \)
+\(\alpha \beta
+\gamma \delta\)
+\(\frac 12 12 \alpha \beta \)
+\(\sqrt{1} \)
+
+\(\test{AAA}\)
+\end{document}
