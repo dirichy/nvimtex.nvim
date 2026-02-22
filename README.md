@@ -45,6 +45,10 @@ require("nvimtex.compile").default()
 I provided many snippets to use, in the `luasnippets` folder, but for now they are not documetationed. 
 I also provide some cmp source for `blink.cmp`, supporting show unicode char in cmp window, but they are still alpha. 
 
+## imselect
+this plugin can be used to switch im according math_environment, etc. 
+see [imselect.nvim](https://github.com/dirichy/imselect.nvim)
+
 # install
 you can use `lazy.nvim` or other manager to install this plugin. 
 ```lua
