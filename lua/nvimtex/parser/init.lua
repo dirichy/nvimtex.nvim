@@ -12,21 +12,6 @@ local Consumer = require("nvimtex.parser.consumer")
 ---@field nodestack (Nvimtex.LNode.withfield|fun():Nvimtex.LNode,string)[]
 local M = {}
 M.__index = M
--- \sqrt[2]abc
--- \sqrt [ 2 ] abc
--- comsuer1=create_comsumer("sqrt")
--- comsuer1("[")  feedback.subconsumer, consumer2=create_optional_arg_consumer()
--- comsumer2("2")  feedback.continue, nil
--- comsumer2("]")  feedback.finish, oarg=LNode:new({"[","2","]"})
--- consumer1(oarg) feedback.continue, nil
--- consumer1("abc") feedback.finish, {finish = LNode:new(...),residual= LNode:new("bc")}
---
---\cmd1\cmd2\cmd3{4}
---consumer1,consumer2,consumer3
---consumer3({4})   finish, node(\cmd3{4})
---consumer2(\cmd3{4})  finish, node(\cmd2\cmd3{4})
--- parser:iter_children(\sqrt[2]abc)
--- {\sqrt[2]a,bc}
 ---@param consumer Nvimtex.Consumer[]|Nvimtex.Consumer|nil
 ---@return Nvimtex.Parser
 function M:new(consumer)

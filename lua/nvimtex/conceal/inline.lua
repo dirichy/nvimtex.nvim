@@ -225,7 +225,8 @@ function Inline:first_hl()
 	return first_item and first_item[2]
 end
 
-local extmark_config = { virt_text_pos = "inline", invalidate = true, undo_restore = false, conceal = "" }
+local extmark_config =
+	{ virt_text_pos = "inline", invalidate = true, undo_restore = false, conceal = "", virt_lines_above = true }
 function Inline:conceal(buffer, range, ns_id, extmark_opt, other_opt)
 	local text = self
 	local start_row, start_col, end_row, end_col

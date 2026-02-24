@@ -33,11 +33,17 @@ M.processor = {
 	generic_command = function(lnode, source, state)
 		local command_node = lnode:field("command")[1]
 		local command_name = vim.treesitter.get_node_text(command_node, source):sub(2, -1)
-		if concealer.map.command_name[command_name] then
+		if concealer.map.command_name[command_name] or concealer.map.generic_command[command_name] then
 			return M.feedback.conceal
 		end
 	end,
 	inline_formula = function()
+		return M.feedback.conceal, extmark.ns_id.inline
+	end,
+	displayed_equation = function()
+		return M.feedback.conceal, extmark.ns_id.inline
+	end,
+	math_environment = function()
 		return M.feedback.conceal, extmark.ns_id.inline
 	end,
 	new_command_definition = function(lnode, source, state)
@@ -131,19 +137,22 @@ function M.default_processor(lnode, source, state)
 			local cursor = vim.api.nvim_win_get_cursor(0)
 			local line, col = cursor[1], cursor[2]
 			line = line - 1
-			cursor_in_node = (a == line and b <= col or a < line) and (c == line and d >= col or c > line)
+			cursor_in_node = vim.treesitter.node_contains(lnode, { line, col, line, col + 1 })
 		end
-		-- vim.print(vim.api.nvim_buf_get_extmarks(source, res, { a, b }, { a, b + 1 }, { details = true }))
-		if #ext_mark == 0 then
-			if cursor_in_node then
-				vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.virtline, 0, -1)
-				extmark_and_buffer_and_ns_id_on_cursor[1] =
-					concealer
-						.default_concealer(lnode, source, state)
-						:conceal(source, lnode, extmark.ns_id.virtline, nil, { virtline = true })
-				extmark_and_buffer_and_ns_id_on_cursor[2] = source
-				extmark_and_buffer_and_ns_id_on_cursor[3] = res
-			else
+		if cursor_in_node then
+			local i = ext_mark[1]
+			if i then
+				vim.api.nvim_buf_del_extmark(source, res, i[1])
+			end
+			vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.virtline, 0, -1)
+			extmark_and_buffer_and_ns_id_on_cursor[1] =
+				concealer
+					.default_concealer(lnode, source, state)
+					:conceal(source, lnode, extmark.ns_id.virtline, nil, { virtline = true })
+			extmark_and_buffer_and_ns_id_on_cursor[2] = source
+			extmark_and_buffer_and_ns_id_on_cursor[3] = res
+		else
+			if #ext_mark == 0 then
 				concealer.default_concealer(lnode, source, state):conceal(source, lnode, res)
 				-- vim.print(
 				-- 	vim.api.nvim_buf_get_extmark_by_id(
@@ -188,33 +197,18 @@ function M.refresh_cursor()
 		end
 	end
 	b = vim.api.nvim_win_get_buf(0)
-	local r, c = unpack(vim.api.nvim_win_get_cursor(0))
-	r = r - 1
-	local extmarks = vim.api.nvim_buf_get_extmarks(b, extmark.ns_id.inline, { r, 0 }, { r, c }, { details = true })
-	for _, mark in ipairs(extmarks) do
-		local extstart = mark[3]
-		local extend = mark[4].end_col
-		if extstart <= c and c <= extend then
-			local text = inline:new(mark[4].virt_text)
-			extmark_and_buffer_and_ns_id_on_cursor = {
-				text:conceal(
-					b,
-					{ mark[2], mark[3], mark[4].end_row, mark[4].end_col },
-					ns_id_tbl.virtline,
-					{},
-					{ virtline = true }
-				),
-				b,
-				ns_id_tbl.virtline,
-			}
-			vim.api.nvim_buf_del_extmark(b, ns_id_tbl.inline, mark[1])
-			-- mark[4].virt_lines = { mark[4].virt_text }
-			-- mark[4].virt_text = nil
-			-- mark[4].ns_id = nil
-			-- mark[4].conceal = nil
-			-- mark[4].id = mark[1]
-			break
+	local state = State:new()
+	local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+	line = line - 1
+	local cnode = require("nvimtex.conditions").find_node(line, col, function(node)
+		local p = processor.processor[node:type()]
+		if p and p(node, b, state) == processor.feedback.conceal then
+			return true
 		end
+		return false
+	end)
+	if cnode then
+		processor.default_processor(cnode, b, state)
 	end
 end
 

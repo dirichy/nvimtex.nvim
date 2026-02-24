@@ -78,7 +78,7 @@ function M.style(map, highlight)
 	return function(node, source, state)
 		local arg_nodes = node:field("arg")
 		if #arg_nodes == 0 then
-			return M.default_concealer(node, source, state)
+			return M.fallback_concealer(node, source, state)
 		end
 		local arg_node = arg_nodes[1]
 		local text = M.conceal_arg_without_bracket(arg_node, source, state)
@@ -131,7 +131,7 @@ function M.script(script_char, map, highlight)
 end
 
 --- get inline conceal of all arg node, then pass them to fn
----@param fn fun(args:Nvimtex.Inline[],state:Nvimtex.State):Nvimtex.Inline
+---@param fn Nvimtex.generic_command.concealer
 ---@param narg number
 ---@param default Nvimtex.LNode?
 ---@return Nvimtex.concealer
@@ -189,6 +189,7 @@ local frac = concealer.create_command_concealer({
 		end
 	end,
 }, 2)
+function M.setup(opts) end
 
 M.map = {
 	generic_command = {
@@ -280,10 +281,16 @@ M.concealer = {
 		end
 	end,
 	["\\("] = function()
-		return inline:new({})
+		return inline:new({ "$", hl.constant })
 	end,
 	["\\)"] = function()
-		return inline:new({})
+		return inline:new({ "$", hl.constant })
+	end,
+	["\\["] = function()
+		return inline:new({ "$$", hl.constant })
+	end,
+	["\\]"] = function()
+		return inline:new({ "$$", hl.constant })
 	end,
 	placeholder = function(lnode, source, state)
 		local text = vim.treesitter.get_node_text(lnode, source)

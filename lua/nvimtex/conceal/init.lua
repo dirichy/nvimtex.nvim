@@ -50,9 +50,16 @@ function M.setup_buf(buffer)
 		vim.api.nvim_buf_attach(buffer, false, {
 			on_bytes = vim.schedule_wrap(function(_, _, _, sr, sc, sb, oer, oec, oeb, ner, nec, neb)
 				parser:parse()
-				local mnode = require("nvimtex.conditions").in_math(sr, sc)
-				if mnode then
-					processor.default_processor(mnode, buffer, State:new())
+				local state = State:new()
+				local cnode = require("nvimtex.conditions").find_node(sr, sc, function(node)
+					local p = processor.processor[node:type()]
+					if p and p(node, buffer, state) == processor.feedback.conceal then
+						return true
+					end
+					return false
+				end)
+				if cnode then
+					processor.default_processor(cnode, buffer, state)
 				end
 			end),
 		})
