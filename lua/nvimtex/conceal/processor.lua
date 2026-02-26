@@ -17,6 +17,25 @@ M.feedback = {
 }
 ---@type table<string,fun(lnode:Nvimtex.LNode,source:number,state:Nvimtex.State):Nvimtex.processor.feedback,any>
 M.processor = {
+	source_file = function(lnode, source, state)
+		local flag = false
+		for n, f in lnode:iter_children() do
+			if n:type() == "generic_environment" then
+				local text = vim.treesitter.get_node_text(n:child(0):child(1):child(1), source)
+				flag = text == "document"
+				break
+			end
+		end
+		state:set("conceal", not flag)
+		return M.feedback.continue
+	end,
+	generic_environment = function(lnode, source, state)
+		local text = vim.treesitter.get_node_text(lnode:child(0):child(1):child(1), source)
+		if text == "document" then
+			state:set("conceal", true)
+		end
+		return M.feedback.continue
+	end,
 	line_comment = function(lnode, source, state)
 		local comment = vim.treesitter.get_node_text(lnode, source)
 		local match = comment:match("^%%%s*nvimtex:%s*(%S*)%s*$")
@@ -37,7 +56,8 @@ M.processor = {
 			return M.feedback.conceal
 		end
 	end,
-	inline_formula = function()
+	inline_formula = function(lnode, source, state)
+		state:set("mmode", true)
 		return M.feedback.conceal, extmark.ns_id.inline
 	end,
 	displayed_equation = function()
@@ -91,32 +111,31 @@ M.processor = {
 	--           word: (placeholder)))))) ; [11, 37] - [11, 39]
 }
 
----@param lnode Nvimtex.LNode
----@param state Nvimtex.State
----@param source number|string
----@param p fun(...:any):Nvimtex.processor.feedback
----@return Nvimtex.processor.feedback?,any
-function M.process_node_with_state(lnode, source, state, p)
-	state:addUndoPoint()
-	local feedback, res = p(lnode, source, state)
-	state:undo()
-	return feedback, res
-end
+-- ---@param lnode Nvimtex.LNode
+-- ---@param state Nvimtex.State
+-- ---@param source number|string
+-- ---@param p fun(...:any):Nvimtex.processor.feedback
+-- ---@return Nvimtex.processor.feedback?,any
+-- function M.process_node_with_state(lnode, source, state, p)
+-- 	state:addUndoPoint()
+-- 	local feedback, res = p(lnode, source, state)
+-- 	state:undo()
+-- 	return feedback, res
+-- end
 
 local extmark_and_buffer_and_ns_id_on_cursor = {}
 ---@param lnode Nvimtex.LNode
 ---@param state Nvimtex.State
 ---@param source number|string
 function M.default_processor(lnode, source, state)
+	state:addUndoPoint()
 	local ltype = lnode:type()
 	local feedback = M.feedback.continue
 	local res
 	if M.processor[ltype] then
-		state:addUndoPoint()
 		feedback, res = M.processor[ltype](lnode, source, state)
-		state:undo()
 	end
-	if feedback == M.feedback.continue then
+	if feedback == M.feedback.continue or (not state:get("conceal") and feedback == M.feedback.conceal) then
 		for node in parser.iter_children(lnode, source) do
 			state:addUndoPoint()
 			M.default_processor(node, source, state)
@@ -164,6 +183,7 @@ function M.default_processor(lnode, source, state)
 				-- )
 			end
 		end
+		state:undo()
 	end
 	if feedback == M.feedback.skip then
 	end

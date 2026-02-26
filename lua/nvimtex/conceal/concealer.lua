@@ -15,6 +15,9 @@ function M.direct_concealer(lnode, source, state)
 end
 ---@type Nvimtex.concealer
 function M.fallback_concealer(lnode, source, state)
+	if not lnode then
+		return inline:new({})
+	end
 	if lnode:child_count() == 0 then
 		return M.direct_concealer(lnode, source, state)
 	end
@@ -249,6 +252,14 @@ M.map = {
 	command_name = require("nvimtex.conceal.command_name"),
 }
 M.concealer = {
+	if_statement = function(lnode, source, state)
+		return M.conceal_node_with_state(
+			state:get("mmode") and lnode:field("if_block")[1] or lnode:field("else_block")[1],
+			source,
+			state,
+			M.fallback_concealer
+		)
+	end,
 	command_name = function(lnode, source, state)
 		local command_name = vim.treesitter.get_node_text(lnode, source):sub(2, -1)
 		local text = M.map.command_name[command_name]
@@ -293,7 +304,11 @@ M.concealer = {
 		return inline:new({ "$$", hl.constant })
 	end,
 	placeholder = function(lnode, source, state)
+		local p = state:get("placeholder")
 		local text = vim.treesitter.get_node_text(lnode, source)
+		if not p or #p == 0 then
+			return inline:new({ text, hl.error })
+		end
 		local number = tonumber(text:match("#*(%d*)"))
 		local placeholder = state:get("placeholder")[number]
 		return placeholder or inline:new({ text, hl.error })

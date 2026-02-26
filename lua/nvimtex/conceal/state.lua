@@ -4,7 +4,7 @@
 ---@field changeHis table[]
 local M = {}
 local private_data = {}
-local initial_data = { delim = 0, placeholder = {}, parser_command_definition = false }
+local initial_data = { delim = 0, placeholder = {}, parser_command_definition = false, conceal = true }
 M.__index = M
 ---@return Nvimtex.State
 function M:new(t)

@@ -139,6 +139,8 @@ function M:sexpr(lnode, field, source, result, range_comment)
 	end
 	result = result or {}
 	range_comment = range_comment or {}
+	source = source or vim.api.nvim_win_get_buf(0)
+	lnode = lnode or vim.treesitter.get_parser(source, "latex"):trees()[1]:root()
 	table.insert(result, (field and field .. ": " or "") .. "(" .. lnode:type())
 	local a, b, c, d = lnode:range()
 	table.insert(range_comment, " ; [" .. a .. ", " .. b .. "] - [" .. c .. ", " .. d .. "]")
@@ -160,6 +162,10 @@ end
 function M:get_consumer(lnode, source)
 	if lnode:type() == "generic_command" then
 		local command_name = vim.treesitter.get_node_text(lnode:child(0), source):sub(2, -1)
+		if command_name == "ifmmode" then
+			local feedback, res = Consumer.if_statement(lnode)
+			return res
+		end
 		local arg_table = generic_command[command_name]
 		if arg_table then
 			local feedback, res = Consumer.generic_command(lnode, arg_table.oarg, arg_table.narg)

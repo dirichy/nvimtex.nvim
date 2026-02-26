@@ -16,6 +16,54 @@ M.creater_feedback = {
 	residual = 3,
 }
 
+function M.if_statement(begin_node, result_field)
+	local result_node = LNode:new("if_statement")
+	local if_node = LNode:new(begin_node:child(0))
+	if_node._type = "if"
+	result_node:add_child(if_node, "if")
+	result_node:set_start(begin_node)
+	---@type Nvimtex.LNode?
+	local block
+	local _else = false
+	---@param node Nvimtex.LNode
+	return M.creater_feedback.success,
+		function(node, field, source)
+			if not block then
+				local t = _else and "else_block" or "if_block"
+				block = LNode:new(t)
+				block:add_child(node, field)
+				block:set_start(node)
+				result_node:add_child(block, t)
+				return M.feedback.continue
+			end
+			local ntype = node:type()
+			if ntype ~= "generic_command" then
+				block:add_child(node, field)
+				return M.feedback.continue
+			end
+			local command_name = vim.treesitter.get_node_text(node:child(0), source):sub(2, -1)
+			if command_name == "else" then
+				block:set_end()
+				block = nil
+				_else = true
+				local elsenode = LNode:new(begin_node:child(0))
+				elsenode._type = "else"
+				result_node:add_child(elsenode, "else")
+				return M.feedback.continue
+			elseif command_name == "fi" then
+				block:set_end()
+				local fi_node = LNode:new(begin_node:child(0))
+				fi_node._type = "if"
+				result_node:add_child(fi_node, "fi")
+				result_node:set_end(node)
+				return M.feedback.finish, { result_node, result_field }
+			else
+				block:add_child(node, field)
+				return M.feedback.continue
+			end
+		end
+end
+
 --- create a consumer to eat node until find a node with type in `until_type`
 ---@param until_type string|string[]
 ---@param begin_node Nvimtex.LNode first node to feed to the consumer
