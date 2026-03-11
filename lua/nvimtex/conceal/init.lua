@@ -124,6 +124,13 @@ function M.setup_buf(buffer)
 		end, 50)
 	end
 end
+function M.forceRefresh(buffer)
+	buffer = buffer or vim.api.nvim_win_get_buf(0)
+	for key, value in pairs(extmark.ns_id) do
+		vim.api.nvim_buf_clear_namespace(buffer, value, 0, -1)
+	end
+	M.refresh(buffer)
+end
 
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts)
