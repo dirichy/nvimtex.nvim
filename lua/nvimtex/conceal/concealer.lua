@@ -237,14 +237,14 @@ M.map = {
 				if args[1] then
 					res = args[1]:style(mathstyle.superscript, true, flag and arg_hl or delim_hl)
 					res = res and res:append({ "√", arg_hl })
-						or inline:new({ "(", delim_hl }):append(args[0], { ")√", delim_hl })
+						or inline:new({ "(", delim_hl }):append(args[1], { ")√", delim_hl })
 				else
 					res = inline:new({ "√", flag and arg_hl or delim_hl }, false)
 				end
 				if flag then
 					return res:append(args[2]:style(mathstyle.overline, false))
 				else
-					return res:append({ "(", delim_hl }, args[1], { ")", delim_hl })
+					return res:append({ "(", delim_hl }, args[2], { ")", delim_hl })
 				end
 			end,
 		}, 1, true),
