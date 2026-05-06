@@ -13,6 +13,7 @@ function M.setup(opts)
 	M.args = opts
 	require("nvimtex.view").setup(opts.view)
 	require("nvimtex.conceal").setup({})
+	require("nvimtex.textobject").setup_buf()
 end
 
 function M._deinit() end
