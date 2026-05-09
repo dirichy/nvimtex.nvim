@@ -2,7 +2,7 @@ local parser = require("nvimtex.parser")
 local util = require("nvimtex.conditions.util")
 local LNode = require("nvimtex.parser.lnode")
 local M = {}
----@param node Nvimtex.LNode
+---@param lnode Nvimtex.LNode
 ---@return table?
 local function node2range(lnode)
 	if not lnode then
@@ -11,19 +11,33 @@ local function node2range(lnode)
 	local a, b, c, d = lnode:range()
 	return { from = { line = a + 1, col = b + 1 }, to = { line = c + 1, col = d } }
 end
+
+--- find a node satisfy a condition
+---@param types string|string[]|fun(lnode:Nvimtex.LNode):Nvimtex.LNode?
+---@return Nvimtex.LNode?
 local function find_node(types)
+	local f
 	if type(types) == "string" then
-		types = { types }
+		f = function(lnode)
+			return lnode:type() == types and lnode
+		end
+	elseif type(types) == "table" then
+		for _, value in ipairs(types) do
+			types[value] = true
+		end
+		f = function(lnode)
+			return types[lnode:type()] and lnode
+		end
+	else
+		f = types
 	end
-	local lnodes = parser.get_node()
+	local lnodes = parser.descendants_node_covering_range()
 	if not lnodes then
 		return
 	end
 	local lnode
 	for _, node in ipairs(lnodes) do
-		if types[node:type()] or vim.tbl_contains(types, node:type()) then
-			lnode = node
-		end
+		lnode = f(node) or lnode
 	end
 	return lnode
 end
@@ -41,8 +55,10 @@ local function on_cursor(lnode)
 	d2 = b2 + 1
 	return (a1 < a2 or a1 == a2 and b1 <= b2) and (c2 < c1 or c2 == c1 and d2 <= d1)
 end
+M.textobject = {}
+local T = M.textobject
 
-M.c = function(a_or_i, obj_type, opts)
+T.c = function(a_or_i, obj_type, opts)
 	local lnode = find_node(util.CMD_NODES)
 	if not lnode then
 		return
@@ -54,7 +70,7 @@ M.c = function(a_or_i, obj_type, opts)
 	end
 end
 
-M.e = function(a_or_i, _, _)
+T.e = function(a_or_i, _, _)
 	local lnode = find_node(util.ENV_NODES)
 	if not lnode then
 		return
@@ -75,7 +91,7 @@ M.e = function(a_or_i, _, _)
 		return { from = { line = a + 1, col = b + 1 }, to = { line = c + 1, col = d } }
 	end
 end
-M.m = function(a_or_i, _, _)
+T.m = function(a_or_i, _, _)
 	local lnode = find_node(util.MATH_NODES)
 	if not lnode then
 		return
@@ -97,38 +113,53 @@ M.m = function(a_or_i, _, _)
 	end
 end
 
-M.a = function(a_or_i, _, _)
+T.a = function(a_or_i, _, _)
 	local all_arg_fields = { "arg", "optional_arg", "name" }
-	local lnodes = parser.get_node()
-	local lnode
-	for _, node in ipairs(lnodes) do
-		if util.CMD_NODES[node:type()] then
-			if not on_cursor(node:child(0)) then
-				lnode = node
+	local lnode = find_node(function(node)
+		local lnode = util.CMD_NODES[node:type()] and not on_cursor(node:child(0)) and node
+		if not lnode then
+			return
+		end
+		for _, field in ipairs(all_arg_fields) do
+			for _, arg_node in ipairs(lnode:field(field)) do
+				if on_cursor(arg_node) then
+					return arg_node
+				end
 			end
 		end
-	end
+	end)
 	if not lnode then
 		return
 	end
-	local arg_node
-	for _, field in ipairs(all_arg_fields) do
-		for _, node in ipairs(lnode:field(field)) do
-			if on_cursor(node) then
-				arg_node = node
-			end
-		end
-	end
 	if a_or_i == "a" then
-		return node2range(arg_node)
+		return node2range(lnode)
 	else
-		arg_node = LNode.remove_bracket(arg_node)
-		return node2range(arg_node)
+		lnode = LNode.remove_bracket(lnode)
+		return node2range(lnode)
 	end
 end
 
-M.t = function(a, b, c)
-	vim.print(a, b, c)
+-- T.t = function(a, b, c)
+-- 	vim.print(a, b, c)
+-- end
+function M.setup_buf(buf)
+	if not buf then
+		if vim.bo.filetype == "latex" or vim.bo.filetype == "tex" then
+			buf = vim.api.nvim_win_get_buf(0)
+		else
+			return
+		end
+	end
+	local cfg = vim.deepcopy(require("mini.ai").config)
+	cfg.custom_textobjects = vim.tbl_extend("force", cfg.custom_textobjects or {}, M.textobject)
+	vim.b[buf].miniai_config = cfg
 end
+
+vim.api.nvim_create_autocmd("FileType", {
+	pattern = "*.tex",
+	callback = function(evt)
+		M.setup_buf(evt.buf)
+	end,
+})
 
 return M

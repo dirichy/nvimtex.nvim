@@ -183,16 +183,31 @@ function M:get_consumer(lnode, source)
 	end
 end
 
----@param root Nvimtex.LNode
----@param source number
+---@param root Nvimtex.LNode?
+---@param source number?
 ---@param a integer
 ---@param b integer
 ---@param c integer
 ---@param d integer
 ---@return Nvimtex.LNode[]
----@overload fun(root:Nvimtex.LNode,source:number,a:number):Nvimtex.LNode[]
----@overload fun(root:Nvimtex.LNode,source:number,a:number,b:number):Nvimtex.LNode[]
+---@overload fun(root:Nvimtex.LNode?,source:number?,win:number?):Nvimtex.LNode[]
+---@overload fun(root:Nvimtex.LNode?,source:number?,line:number,col:number):Nvimtex.LNode[]
 function M.descendants_node_covering_range(root, source, a, b, c, d)
+	if not source then
+		if a and not b then
+			source = vim.api.nvim_win_get_buf(a)
+		else
+			source = vim.api.nvim_win_get_buf(0)
+		end
+	end
+	if not root then
+		local tree = vim.treesitter.get_parser(source, "latex")
+		if tree and tree:trees() and tree:trees()[1] then
+			root = tree:trees()[1]:root()
+		else
+			return {}
+		end
+	end
 	if not b then
 		local cursor = vim.api.nvim_win_get_cursor(a or 0)
 		a, b = cursor[1] - 1, cursor[2]
