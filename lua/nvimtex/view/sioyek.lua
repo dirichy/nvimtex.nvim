@@ -8,17 +8,31 @@ local default_args = function(path)
 	local cursor = vim.api.nvim_win_get_cursor(0)[1]
 	local servername = vim.v.servername
 
-	local args = {
-		"--instance-name",
-		vim.fn.sha256(servername),
-		"--inverse-search",
-		"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
-		"--forward-search-file",
-		path,
-		"--forward-search-line",
-		tostring(cursor),
-		cwd .. "/" .. jobname .. ".pdf",
-	}
+	local system = vim.uv.os_uname().sysname
+	local args
+	if system == "Darwin" then
+		args = {
+			"--inverse-search",
+			"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
+			"--forward-search-file",
+			path,
+			"--forward-search-line",
+			tostring(cursor),
+			cwd .. "/" .. jobname .. ".pdf",
+		}
+	else
+		args = {
+			"--instance-name",
+			vim.fn.sha256(servername),
+			"--inverse-search",
+			"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
+			"--forward-search-file",
+			path,
+			"--forward-search-line",
+			tostring(cursor),
+			cwd .. "/" .. jobname .. ".pdf",
+		}
+	end
 	local command = "sioyek"
 	return { command = command, cwd = cwd, args = args }
 end
