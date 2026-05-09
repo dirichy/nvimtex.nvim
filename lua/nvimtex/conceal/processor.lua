@@ -18,21 +18,27 @@ M.feedback = {
 local has_error = false
 ---@type table<string,fun(lnode:Nvimtex.LNode,source:number,state:Nvimtex.State):Nvimtex.processor.feedback,any>
 M.processor = {
+	ERROR = function(lnode, source, state)
+		local line_begin, _, line_end, _ = lnode:range()
+		vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.inline, line_begin, line_end)
+		vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.virtline, line_begin, line_end)
+		vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.command, line_begin, line_end)
+	end,
 	source_file = function(lnode, source, state)
-		if lnode:has_error() then
-			if not has_error then
-				has_error = true
-				vim.api.nvim_set_option_value("concealcursor", "", { scope = "local" })
-				vim.api.nvim_set_option_value("conceallevel", 0, { scope = "local" })
-			end
-			return M.feedback.skip
-		else
-			if has_error then
-				has_error = false
-				vim.api.nvim_set_option_value("concealcursor", "nvic", { scope = "local" })
-				vim.api.nvim_set_option_value("conceallevel", 2, { scope = "local" })
-			end
-		end
+		-- if lnode:has_error() then
+		-- 	if not has_error then
+		-- 		has_error = true
+		-- 		vim.api.nvim_set_option_value("concealcursor", "", { scope = "local" })
+		-- 		vim.api.nvim_set_option_value("conceallevel", 0, { scope = "local" })
+		-- 	end
+		-- 	return M.feedback.skip
+		-- else
+		-- 	if has_error then
+		-- 		has_error = false
+		-- 		vim.api.nvim_set_option_value("concealcursor", "nvic", { scope = "local" })
+		-- 		vim.api.nvim_set_option_value("conceallevel", 2, { scope = "local" })
+		-- 	end
+		-- end
 		local flag = false
 		for n, f in lnode:iter_children() do
 			if n:type() == "generic_environment" then
@@ -73,19 +79,27 @@ M.processor = {
 	end,
 	inline_formula = function(lnode, source, state)
 		state:set("mmode", true)
-		-- local a, b, c, d = lnode:range()
+		local a, _, c = lnode:range()
 		-- local extmarks = vim.api.nvim_buf_get_extmarks(source, extmark.ns_id.command, { a, b }, { c, d }, {})
 		-- for _, e in ipairs(extmarks) do
 		-- 	vim.api.nvim_buf_del_extmark(source, extmark.ns_id.command, e[1])
 		-- end
-		return M.feedback.conceal, extmark.ns_id.inline
+		if a == c then
+			return M.feedback.conceal, extmark.ns_id.inline
+		end
+		for n in parser.iter_children(lnode, source) do
+			local x = n:range()
+			if x > a then
+			end
+		end
+		return M.feedback.skip
 	end,
-	displayed_equation = function()
-		return M.feedback.conceal, extmark.ns_id.inline
-	end,
-	math_environment = function()
-		return M.feedback.conceal, extmark.ns_id.inline
-	end,
+	-- displayed_equation = function()
+	-- 	return M.feedback.conceal, extmark.ns_id.inline
+	-- end,
+	-- math_environment = function()
+	-- 	return M.feedback.conceal, extmark.ns_id.inline
+	-- end,
 	new_command_definition = function(lnode, source, state)
 		if not state:get("parser_command_definition") then
 			return M.feedback.skip
@@ -162,7 +176,7 @@ function M.default_processor(lnode, source, state)
 			state:undo()
 		end
 	end
-	if feedback == M.feedback.conceal then
+	if feedback == M.feedback.conceal and state:get("conceal") then
 		if type(source) == "string" then
 			return
 		end
