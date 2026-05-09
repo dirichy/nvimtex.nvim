@@ -5,6 +5,7 @@ local inline = require("nvimtex.conceal.inline")
 local mathstyle = require("nvimtex.latex.mathstyle")
 local LNode = require("nvimtex.parser.lnode")
 local hl = require("nvimtex.highlight")
+local util = require("nvimtex.conceal.util")
 local M = {}
 local processor = M
 local parser = require("nvimtex.parser")
@@ -15,7 +16,6 @@ M.feedback = {
 	skip = 1,
 	conceal = 2,
 }
-local has_error = false
 ---@type table<string,fun(lnode:Nvimtex.LNode,source:number,state:Nvimtex.State):Nvimtex.processor.feedback,any>
 M.processor = {
 	ERROR = function(lnode, source, state)
@@ -48,12 +48,14 @@ M.processor = {
 			end
 		end
 		state:set("conceal", not flag)
+		state:set("preamble", flag)
 		return M.feedback.continue
 	end,
 	generic_environment = function(lnode, source, state)
 		local text = vim.treesitter.get_node_text(lnode:child(0):child(1):child(1), source)
 		if text == "document" then
 			state:set("conceal", true)
+			state:set("preamble", false)
 		end
 		return M.feedback.continue
 	end,
@@ -76,6 +78,7 @@ M.processor = {
 		if concealer.map.command_name[command_name] or concealer.map.generic_command[command_name] then
 			return M.feedback.conceal, extmark.ns_id.command
 		end
+		return M.feedback.continue
 	end,
 	inline_formula = function(lnode, source, state)
 		state:set("mmode", true)
@@ -84,22 +87,42 @@ M.processor = {
 		-- for _, e in ipairs(extmarks) do
 		-- 	vim.api.nvim_buf_del_extmark(source, extmark.ns_id.command, e[1])
 		-- end
-		if a == c then
-			return M.feedback.conceal, extmark.ns_id.inline
-		end
-		for n in parser.iter_children(lnode, source) do
-			local x = n:range()
-			if x > a then
-			end
-		end
-		return M.feedback.skip
+		-- if a == c then
+		-- 	return M.feedback.conceal, extmark.ns_id.inline
+		-- end
+		-- for n in parser.iter_children(lnode, source) do
+		-- 	local x = n:range()
+		-- 	if x > a then
+		-- 	end
+		-- end
+		return M.feedback.continue
 	end,
-	-- displayed_equation = function()
-	-- 	return M.feedback.conceal, extmark.ns_id.inline
-	-- end,
-	-- math_environment = function()
-	-- 	return M.feedback.conceal, extmark.ns_id.inline
-	-- end,
+	["\\("] = function(lnode, source, state)
+		return M.feedback.conceal
+	end,
+	["\\)"] = function(lnode, source, state)
+		return M.feedback.conceal
+	end,
+	["\\["] = function(lnode, source, state)
+		return M.feedback.conceal
+	end,
+	["\\]"] = function(lnode, source, state)
+		return M.feedback.conceal
+	end,
+	subscript = function(lnode, source, state)
+		return M.feedback.conceal
+	end,
+	superscript = function(lnode, source, state)
+		return M.feedback.conceal
+	end,
+	displayed_equation = function(lnode, source, state)
+		state:set("mmode", true)
+		return M.feedback.continue
+	end,
+	math_environment = function(lnode, source, state)
+		state:set("mmode", true)
+		return M.feedback.continue
+	end,
 	new_command_definition = function(lnode, source, state)
 		if not state:get("parser_command_definition") then
 			return M.feedback.skip
@@ -162,7 +185,9 @@ local extmark_and_buffer_and_ns_id_on_cursor = {}
 ---@param state Nvimtex.State
 ---@param source number|string
 function M.default_processor(lnode, source, state)
-	state:addUndoPoint()
+	if not (util.node_in_screen(lnode) or state:get("preamble")) then
+		return
+	end
 	local ltype = lnode:type()
 	local feedback = M.feedback.continue
 	local res
@@ -197,13 +222,13 @@ function M.default_processor(lnode, source, state)
 			if i then
 				vim.api.nvim_buf_del_extmark(source, res, i[1])
 			end
-			vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.virtline, 0, -1)
-			extmark_and_buffer_and_ns_id_on_cursor[1] =
-				concealer
-					.default_concealer(lnode, source, state)
-					:conceal(source, lnode, extmark.ns_id.virtline, nil, { virtline = true })
-			extmark_and_buffer_and_ns_id_on_cursor[2] = source
-			extmark_and_buffer_and_ns_id_on_cursor[3] = res
+			-- vim.api.nvim_buf_clear_namespace(source, extmark.ns_id.virtline, 0, -1)
+			-- extmark_and_buffer_and_ns_id_on_cursor[1] =
+			-- 	concealer
+			-- 		.default_concealer(lnode, source, state)
+			-- 		:conceal(source, lnode, extmark.ns_id.virtline, nil, { virtline = true })
+			-- extmark_and_buffer_and_ns_id_on_cursor[2] = source
+			-- extmark_and_buffer_and_ns_id_on_cursor[3] = res
 		else
 			if #ext_mark == 0 then
 				concealer.default_concealer(lnode, source, state):conceal(source, lnode, res)
@@ -217,7 +242,6 @@ function M.default_processor(lnode, source, state)
 				-- )
 			end
 		end
-		state:undo()
 	end
 	if feedback == M.feedback.skip then
 	end

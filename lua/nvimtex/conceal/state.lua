@@ -4,12 +4,13 @@
 ---@field changeHis table[]
 local M = {}
 local private_data = {}
-local initial_data = { delim = 0, placeholder = {}, parser_command_definition = false, conceal = true }
+local initial_data =
+	{ delim = 0, placeholder = {}, parser_command_definition = false, conceal = true, preamble = false }
 M.__index = M
 ---@return Nvimtex.State
 function M:new(t)
 	local res = {}
-	res[private_data] = t and vim.deepcopy(t) or { delim = 0 }
+	res[private_data] = vim.deepcopy(t or initial_data)
 	res.changeLog = {}
 	res.changeHis = { res.changeLog }
 	return setmetatable(res, M)

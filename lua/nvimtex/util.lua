@@ -150,5 +150,20 @@ function M.readfile(path)
 	f:close()
 	return res
 end
+function M.debounce(fn, ms)
+	local timer = vim.uv.new_timer()
+
+	return function(...)
+		local argv = { ... }
+
+		timer:stop()
+
+		timer:start(ms, 0, function()
+			vim.schedule(function()
+				fn(unpack(argv))
+			end)
+		end)
+	end
+end
 
 return M
