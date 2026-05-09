@@ -104,6 +104,7 @@ function M.delim(...)
 				res:append(value)
 				res:append({ delims[index + 1], highlight })
 			end
+			return res
 		end,
 	}, n - 1)
 end
