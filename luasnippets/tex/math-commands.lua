@@ -5,7 +5,17 @@ local t = ls.text_node
 local i = ls.insert_node
 local f = ls.function_node
 local fmta = require("luasnip.extras.fmt").fmta
+local align_relation = {
+	neq = "\\neq",
+	eq = "=",
+	leq = "\\leq",
+	geq = "\\geq",
+	["<"] = "<",
+	[">"] = ">",
+	["="] = "=",
+}
 
+local line_begin = require("luasnip.extras.expand_conditions").line_begin
 local tex = require("nvimtex.conditions.luasnip")
 
 local get_visual = function(args, parent)
@@ -16,7 +26,7 @@ local get_visual = function(args, parent)
 	end
 end
 
-return {
+local M = {
 	s(
 		{ trig = "(%d)sqrt", regTrig = true, snippetType = "autosnippet" },
 		fmta("\\sqrt[<>]{<>}", {
@@ -112,3 +122,14 @@ return {
 		{ condition = tex.in_math }
 	),
 }
+for key, value in pairs(align_relation) do
+	table.insert(
+		M,
+		s(
+			{ trig = key .. " ", regTrig = false, snippetType = "autosnippet" },
+			{ t("&" .. value .. " ") },
+			{ condition = line_begin * tex.in_align }
+		)
+	)
+end
+return M

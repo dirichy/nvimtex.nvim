@@ -210,4 +210,7 @@ end
 function M.in_table()
 	return M.in_env({ "array", "tblr", "tabular" }, false)
 end
+function M.in_align()
+	return M.in_env({ "aligned", "align" }, false)
+end
 return M
