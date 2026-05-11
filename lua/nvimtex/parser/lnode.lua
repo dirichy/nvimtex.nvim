@@ -218,7 +218,11 @@ end
 ---@param x integer
 ---@overload fun(self:Nvimtex.LNode,node:Nvimtex.LNode)
 ---@overload fun(self:Nvimtex.LNode,range:integer[])
+---@overload fun(self:Nvimtex.LNode)
 function _LNode:set_start(a, b, x)
+	if not a then
+		a = self._childrens[1]
+	end
 	if type(a) == "userdata" then
 		a, b, x = a:start()
 	end

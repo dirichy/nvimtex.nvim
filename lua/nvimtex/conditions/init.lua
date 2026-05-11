@@ -8,21 +8,22 @@ local M = {}
 ---@param d number end_col
 ---@return Nvimtex.LNode|false
 function M.in_math(a, b, c, d)
+	local res
 	local cursor = { a, b }
 	local node = vim.treesitter.get_node({ pos = { a, b } })
 	while node do
 		if util.TEXT_NODES[node:type()] then
-			return false
+			return res
 		elseif util.MATH_NODES[node:type()] then
 			local x, y = node:start()
 			if x == cursor[1] and y == cursor[2] then
-				return false
+				return res
 			end
-			return node
+			res = node
 		end
 		node = util.node_parent(node)
 	end
-	return false
+	return res
 end
 --- find a node satisfy condition cover a position
 ---@param a number line
