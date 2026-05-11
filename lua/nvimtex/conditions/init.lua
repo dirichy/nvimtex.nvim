@@ -1,6 +1,12 @@
 local util = require("nvimtex.conditions.util")
 local parser = require("nvimtex.parser")
 local M = {}
+--- find a math node cover a range
+---@param a number start_line
+---@param b number start_col
+---@param c number end_line
+---@param d number end_col
+---@return Nvimtex.LNode|false
 function M.in_math(a, b, c, d)
 	local cursor = { a, b }
 	local node = vim.treesitter.get_node({ pos = { a, b } })
@@ -18,6 +24,12 @@ function M.in_math(a, b, c, d)
 	end
 	return false
 end
+--- find a node satisfy condition cover a position
+---@param a number line
+---@param b number col
+---@param condition fun(lnode:Nvimtex.LNode):boolean
+---@param smallest boolean find smallest node or biggest node, default false
+---@return Nvimtex.LNode|false
 function M.find_node(a, b, condition, smallest)
 	local buf = vim.api.nvim_win_get_buf(0)
 	local root = vim.treesitter.get_parser(buf, "latex")

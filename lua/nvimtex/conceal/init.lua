@@ -18,6 +18,7 @@ M.config = {
 	refresh_events = { "InsertLeave", "BufWritePost" },
 	local_refresh_events = { "TextChangedI", "TextChanged" },
 	cursor_refresh_events = { "CursorMovedI", "CursorMoved" },
+	debounce = 50,
 }
 M.refresh = util.debounce(function(buffer, root)
 	buffer = buffer or vim.api.nvim_win_get_buf(0)
@@ -34,7 +35,7 @@ M.refresh = util.debounce(function(buffer, root)
 	end
 	local state = State:new()
 	processor.default_processor(root, buffer, state)
-end, 200)
+end, M.config.debounce)
 
 --- init for a buffer
 ---@param buffer table|number
