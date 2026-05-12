@@ -21,13 +21,14 @@ local compiler = {
 ---@return number
 function M.get_compiler_by_documentclass(source)
 	local compiler_table = {
-		ctexart = compiler.all - compiler.pdflatex,
-		ctexbook = compiler.all - compiler.pdflatex,
+		ctexart = compiler.notpdf,
+		ctexbook = compiler.notpdf,
 		article = compiler.all,
 		book = compiler.all,
+		ctexbeamer = compiler.notpdf,
 	}
 	local class = util.get_documentclass(source)
-	return compiler_table[class.name]
+	return compiler_table[class.name] or compiler.all
 end
 ---@param source number|string
 ---@return number
