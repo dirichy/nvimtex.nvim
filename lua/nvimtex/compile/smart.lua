@@ -28,12 +28,22 @@ function M.get_compiler_by_documentclass(source)
 		ctexbeamer = compiler.notpdf,
 	}
 	local class = util.get_documentclass(source)
-	return compiler_table[class.name] or compiler.all
+	local result = compiler_table[class.name]
+	if not result then
+		if string.match(class.name, "^lua") then
+			result = compiler.lualatex
+		elseif string.match(class.name, "^ctex") then
+			result = compiler.notpdf
+		end
+	end
+	return result or compiler.all
 end
 ---@param source number|string
 ---@return number
 function M.get_compiler_by_magic_comment(source)
-	return compiler[util.get_magic_comment("ts-program", true, source)] or compiler.all
+	return compiler[util.get_magic_comment("ts-program", true, source)]
+		or compiler[util.get_magic_comment("program", true, source)]
+		or compiler.all
 end
 
 ---@param source number|string
@@ -51,7 +61,8 @@ function M.get_compiler_by_packages(source)
 		return compiler.pdflatex
 	end
 	if packages.ctex or packages.fontspec or packages["unicode-math"] then
-		res = bit.band(res, compiler.notpdf)
+		return compiler.notpdf
+		-- res = bit.band(res, compiler.notpdf)
 	end
 	return res
 end
