@@ -73,4 +73,9 @@ return {
 	["norm"] = { narg = 1 },
 	["abs"] = { narg = 1 },
 	["sqrt"] = { oarg = true, narg = 1 },
+	mathbb = { narg = 1 },
+	mathsrc = { narg = 1 },
+	mathfrak = { narg = 1 },
+	mathrm = { narg = 1 },
+	mathbbm = { narg = 1 },
 }
