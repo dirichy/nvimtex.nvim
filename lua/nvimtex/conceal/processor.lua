@@ -15,6 +15,7 @@ M.feedback = {
 	continue = 0,
 	skip = 1,
 	conceal = 2,
+	clear_if_on_cursor = 3,
 }
 ---@type table<string,fun(lnode:Nvimtex.LNode,source:number,state:Nvimtex.State):Nvimtex.processor.feedback,any>
 M.processor = {
@@ -76,7 +77,8 @@ M.processor = {
 		local command_node = lnode:field("command")[1]
 		local command_name = vim.treesitter.get_node_text(command_node, source):sub(2, -1)
 		if concealer.map.command_name[command_name] or concealer.map.generic_command[command_name] then
-			return M.feedback.conceal, extmark.ns_id.command
+			return M.feedback.conceal
+			--, extmark.ns_id.command
 		end
 		return M.feedback.continue
 	end,
@@ -95,7 +97,7 @@ M.processor = {
 		-- 	if x > a then
 		-- 	end
 		-- end
-		return M.feedback.continue
+		return M.feedback.clear_if_on_cursor
 	end,
 	["\\("] = function(lnode, source, state)
 		return M.feedback.conceal
@@ -117,11 +119,11 @@ M.processor = {
 	end,
 	displayed_equation = function(lnode, source, state)
 		state:set("mmode", true)
-		return M.feedback.continue
+		return M.feedback.clear_if_on_cursor
 	end,
 	math_environment = function(lnode, source, state)
 		state:set("mmode", true)
-		return M.feedback.continue
+		return M.feedback.clear_if_on_cursor
 	end,
 	new_command_definition = function(lnode, source, state)
 		if not state:get("parser_command_definition") then
@@ -193,6 +195,22 @@ function M.default_processor(lnode, source, state)
 	local res
 	if M.processor[ltype] then
 		feedback, res = M.processor[ltype](lnode, source, state)
+	end
+	if feedback == M.feedback.clear_if_on_cursor then
+		res = res or vim.api.nvim_create_namespace("nvimtex")
+		--TODO: win maybe not zero
+		local a, b = unpack(vim.api.nvim_win_get_cursor(0))
+		a = a - 1
+		if vim.treesitter.node_contains(lnode, { a, b, a, b + 1 }) then
+			local s, t, u, v = lnode:range()
+			local ext_mark = vim.api.nvim_buf_get_extmarks(source, res, { s, t }, { u, v }, {})
+			for _, e in ipairs(ext_mark) do
+				vim.api.nvim_buf_del_extmark(source, res, e[1])
+			end
+		end
+		-- if (a > s or (a == s and b >= t)) and (a < u or (a == u and b <= v)) then
+		-- end
+		feedback = M.feedback.continue
 	end
 	if feedback == M.feedback.continue or (not state:get("conceal") and feedback == M.feedback.conceal) then
 		for node in parser.iter_children(lnode, source) do
