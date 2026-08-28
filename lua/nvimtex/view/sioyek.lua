@@ -38,17 +38,18 @@ local default_args = function(path)
 end
 local handle = nil
 local function sioyek(args)
-	if not vim.fn.executable("sioyek") then
+	if vim.fn.executable("sioyek") == 0 then
 		error("sioyek is not executable, make sure to install it and add it into PATH")
 	end
 	local path
-	if util.get_magic_comment("root") then
-		path = vim.fn.expand("%:p:h") .. "/" .. util.get_magic_comment("root")
+	local magic_comment = util.get_magic_comment()
+	if magic_comment.root then
+		path = vim.fn.expand("%:p:h") .. "/" .. magic_comment.root
 		path = vim.fs.normalize(path)
 	end
 	path = path or vim.fn.expand("%:p")
 	local opts = vim.tbl_deep_extend("force", default_args(path), args or {})
-	handle = vim.uv.spawn("sioyek", opts)
+	handle = vim.uv.spawn(opts.command, opts)
 	assert(handle, "can't open sioyek")
 	return handle
 	-- sioyek_window_opened = true

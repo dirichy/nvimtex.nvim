@@ -39,7 +39,25 @@ in this example, `testa` and `testb` are parsed, `testc` and `testd` are not par
 require("nvimtex.compile").default()
 ```
 2. support smartly guess how many turns need to run. 
-3. for now, bibtex and biber are not implemented, but they are on schedule. 
+3. support BibTeX/Biber in the builtin backend. It detects `biblatex`, BibTeX-style bibliography commands, and LaTeX-generated `.bcf`/`.aux` control files, runs the bibliography backend when needed, then reruns LaTeX.
+   The backend is guessed from, in order: explicit config, TeX magic comments such as `% !TeX bib-program = biber`, explicit `biblatex` package backend option, bibliography-related packages, source commands such as `\addbibresource` or `\bibliography`, then LaTeX output artifacts.
+4. builtin compile backend writes intermediate files to `/tmp/nvimtex.nvim/<hash>/` by default, then copies the final PDF and SyncTeX file back to the tex file directory.
+5. successful builtin compiles notify a short summary with the command chain, per-step time, and total time.
+```lua
+require("nvimtex").setup({
+  compile = {
+    build_root = "/tmp/nvimtex.nvim",
+    bib = {
+      enabled = true,
+      backend = "auto", -- "auto", "bibtex", or "biber"
+      commands = {
+        bibtex = "bibtex",
+        biber = "biber",
+      },
+    },
+  },
+})
+```
 
 ## snippet
 I provided many snippets to use, in the `luasnippets` folder, but for now they are not documetationed. 
@@ -97,3 +115,9 @@ you can use `lazy.nvim` or other manager to install this plugin.
 		end,
 	},
 ```
+
+# tests
+```sh
+sh tests/run_headless.sh
+```
+This runs smart backend strategy tests, mocked compile pipeline tests, and real TeX fixture tests. Real engine cases are skipped when the corresponding executable exists but cannot compile cleanly in the local environment.
