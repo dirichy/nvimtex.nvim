@@ -9,7 +9,7 @@ local util = require("nvimtex.conceal.util")
 local M = {}
 local processor = M
 local parser = require("nvimtex.parser")
-local generic_command_arg_table = require("nvimtex.parser.generic_command")
+local command_specs = require("nvimtex.parser.command_specs")
 ---@enum Nvimtex.processor.feedback
 M.feedback = {
 	continue = 0,
@@ -148,7 +148,7 @@ M.processor = {
 			return M.feedback.skip
 		end
 		implementation = LNode.remove_bracket(implementation)
-		generic_command_arg_table[command_name] = { narg = argc, oarg = default }
+		command_specs[command_name] = { narg = argc, oarg = default }
 		concealer.map.generic_command[command_name] = concealer.expand(implementation, source, argc, default)
 		return M.feedback.skip
 	end,

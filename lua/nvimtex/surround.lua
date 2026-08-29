@@ -1,7 +1,8 @@
 local conditions = require("nvimtex.conditions")
 local parser = require("nvimtex.parser")
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 local util = require("nvimtex.latex.util")
-local lnode = require("nvimtex.parser.lnode")
+local LNode = require("nvimtex.parser.lnode")
 local M = {}
 ---@enum Nvimtex.math.type
 M.mtype = {
@@ -19,8 +20,7 @@ local mtype_count = 5
 local function buf_range_get_text(buf, start_row, start_col, end_row, end_col)
 	if end_col == 0 then
 		if start_row == end_row then
-			start_col = -1
-			start_row = start_row - 1
+			return ""
 		end
 		end_col = -1
 		end_row = end_row - 1
@@ -28,20 +28,7 @@ local function buf_range_get_text(buf, start_row, start_col, end_row, end_col)
 	local lines = vim.api.nvim_buf_get_text(buf, start_row, start_col, end_row, end_col, {})
 	return table.concat(lines, "\n")
 end
---- Get name of an environment node
----@param enode Nvimtex.LNode
----@return string
-local function get_env_name(buf, enode)
-	return vim.treesitter.get_node_text(enode:child(0):child(1):child(1), buf)
-end
---- Get name of an command node
----@param buf number
----@param cnode Nvimtex.LNode
-local function get_cmd_name(buf, cnode)
-	local command_node = cnode:field("command")[1]
-	local command_name = vim.treesitter.get_node_text(command_node, buf):sub(2, -1)
-	return command_name
-end
+
 --- Get math type of a math node
 ---@param mnode Nvimtex.LNode
 ---@return Nvimtex.math.type
@@ -52,17 +39,14 @@ function M.get_math_type(buf, mnode)
 	elseif nodetype == "displayed_equation" then
 		return M.mtype.display
 	elseif nodetype == "math_environment" then
-		local ename = get_env_name(buf, mnode)
+		local ename = latex_nodes.environment_name(buf, mnode)
 		if ename == "align" or ename == "align*" then
 			return M.mtype.align
 		end
 		if ename == "equation" or ename == "equation*" then
-			local first_child = mnode:child(1)
-			if first_child and first_child:type() == "math_environment" then
-				local child_name = get_env_name(buf, first_child)
-				if child_name == "aligned" then
-					return M.mtype.aligned
-				end
+			local body = latex_nodes.single_body_math_environment(mnode)
+			if body and latex_nodes.environment_name(buf, body) == "aligned" then
+				return M.mtype.aligned
 			end
 			return M.mtype.equation
 		end
@@ -79,7 +63,7 @@ end
 local function is_relation_operator(buf, node)
 	local t = node:type()
 	if t == "generic_command" then
-		t = get_cmd_name(buf, node)
+		return util.relation_operator.generic_command(latex_nodes.command_name(buf, node))
 	end
 	return util.relation_operator[t]
 end
@@ -93,21 +77,15 @@ function M.format_math(buf, mnode, opts)
 		line[2] = "\n"
 	end
 	local met_first_relation = false
-	mnode = lnode:new(mnode)
+	mnode = LNode:new(mnode)
 	if M.get_math_type(buf, mnode) == M.mtype.aligned then
-		mnode = lnode:new(mnode:child(1))
-		table.remove(mnode._childrens, 1)
-		table.remove(mnode._childrens)
-	else
-		table.remove(mnode._childrens, 1)
-		table.remove(mnode._childrens)
+		mnode = LNode:new(latex_nodes.single_body_math_environment(mnode))
 	end
-	local iter = parser.iter_children(mnode, buf)
+	mnode = latex_nodes.without_math_boundary(mnode)
 	--- 0 for normal, 1 for after newline, 2 for after `&`.
 	local cache_state = 0
 	local ra, rb, rc, rd
-	local node = iter()
-	while node do
+	for node in parser.iter_children(mnode, buf) do
 		if is_new_line(buf, node) then
 			if cache_state ~= 0 then
 				vim.notify("Can't guess how to deal with align tab or newline", vim.log.levels.WARN)
@@ -164,7 +142,6 @@ function M.format_math(buf, mnode, opts)
 			ra, rb, rc, rd = node:range()
 		end
 		::continue::
-		node = iter()
 	end
 	if ra then
 		table.insert(line, buf_range_get_text(buf, ra, rb, rc, rd))
@@ -186,17 +163,22 @@ local format_arg = {
 }
 function M.change_math(mtype, mnode)
 	local buf = vim.api.nvim_win_get_buf(0)
-	local a, b = unpack(vim.api.nvim_win_get_cursor(0))
-	a = a - 1
-	-- mnode = mnode or conditions.in_math(a, b, a, b)
-	-- if not mnode then
-	-- 	vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
-	-- 	return
-	-- end
+	if not mnode then
+		local a, b = unpack(vim.api.nvim_win_get_cursor(0))
+		a = a - 1
+		mnode = conditions.in_math(a, b, a, b)
+	end
+	if not mnode then
+		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
+		return
+	end
+	local opts = format_arg[mtype]
+	if not opts then
+		vim.notify("Unknown math target type", vim.log.levels.WARN)
+		return
+	end
 	local s, t, u, v = mnode:range()
-	-- local mtype = M.get_math_type(buf, mnode)
-	-- mtype = (mtype + 1) % 5
-	local lines = M.format_math(buf, mnode, format_arg[mtype])
+	local lines = M.format_math(buf, mnode, opts)
 	if lines then
 		vim.api.nvim_buf_set_text(buf, s, t, u, v, lines)
 	end
@@ -208,6 +190,7 @@ function M.upgrade_math()
 	local mnode = conditions.in_math(a, b, a, b)
 	if not mnode then
 		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
+		return
 	end
 	local mtype = M.get_math_type(buf, mnode)
 	mtype = (mtype + 1) % mtype_count
@@ -220,6 +203,7 @@ function M.downgrade_math()
 	local mnode = conditions.in_math(a, b, a, b)
 	if not mnode then
 		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
+		return
 	end
 	local mtype = M.get_math_type(buf, mnode)
 	mtype = (mtype - 1) % mtype_count

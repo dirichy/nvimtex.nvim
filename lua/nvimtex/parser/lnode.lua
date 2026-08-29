@@ -113,8 +113,8 @@ function _LNode:tostring(indent)
 	if self:child(0) then
 		str = str .. string.format(" ; [%d,%d] - [%d,%d]\n", self:range())
 		for node in _LNode.iter_children(self) do
-			node = _LNode:new(node)
-			str = str .. node:tostring(indent + 1)
+			local child = _LNode:new(node)
+			str = str .. child:tostring(indent + 1)
 		end
 		str = str .. ")"
 	else
