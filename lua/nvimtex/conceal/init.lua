@@ -15,26 +15,72 @@ M.config = {
 	processor = {},
 	extmark = {},
 	conceal_cursor = "nvic",
+	filetypes = { "tex", "plaintex", "latex", "markdown", "rmd", "quarto" },
+	latex_filetypes = { tex = true, plaintex = true, latex = true },
 	refresh_events = { "InsertLeave", "BufWritePost" },
 	local_refresh_events = { "TextChangedI", "TextChanged" },
 	cursor_refresh_events = { "CursorMovedI", "CursorMoved" },
 	debounce = 50,
 }
+
+local function collect_latex_roots(langtree, roots, seen)
+	if not langtree then
+		return
+	end
+
+	pcall(function()
+		langtree:parse(true)
+	end)
+
+	if langtree:lang() == "latex" then
+		for _, tree in ipairs(langtree:trees() or {}) do
+			local root = tree:root()
+			local key = table.concat({ root:range() }, ":")
+			if not seen[key] then
+				seen[key] = true
+				roots[#roots + 1] = root
+			end
+		end
+	end
+
+	for _, child in pairs(langtree:children() or {}) do
+		collect_latex_roots(child, roots, seen)
+	end
+end
+
+local function filetype_enabled(filetype)
+	return vim.tbl_contains(M.config.filetypes, filetype)
+end
+
+function M.latex_roots(buffer)
+	buffer = buffer or vim.api.nvim_get_current_buf()
+	local roots = {}
+	local seen = {}
+	local ft = vim.api.nvim_get_option_value("filetype", { scope = "local", buf = buffer })
+
+	if M.config.latex_filetypes[ft] then
+		local ok, parser = pcall(vim.treesitter.get_parser, buffer, "latex")
+		if ok then
+			collect_latex_roots(parser, roots, seen)
+		end
+		return roots
+	end
+
+	local ok, parser = pcall(vim.treesitter.get_parser, buffer)
+	if ok then
+		collect_latex_roots(parser, roots, seen)
+	end
+	return roots
+end
+
 M.refresh = util.debounce(function(buffer, root)
 	buffer = buffer or vim.api.nvim_win_get_buf(0)
 	vim.api.nvim_buf_clear_namespace(buffer, extmark.ns_id.fast, 0, -1)
-	if not root then
-		local tree = vim.treesitter.get_parser(buffer, "latex")
-
-		if tree and tree:trees() and tree:trees()[1] then
-			root = tree:trees()[1]:root()
-		end
+	local roots = root and { root } or M.latex_roots(buffer)
+	for _, latex_root in ipairs(roots) do
+		local state = State:new()
+		processor.default_processor(latex_root, buffer, state)
 	end
-	if not root then
-		return
-	end
-	local state = State:new()
-	processor.default_processor(root, buffer, state)
 end, M.config.debounce)
 
 --- init for a buffer
@@ -141,14 +187,31 @@ function M.setup(opts)
 	-- vim.schedule(function()
 	-- 	M.setup_buf({ buf = vim.api.nvim_get_current_buf() })
 	-- end)
-	vim.api.nvim_create_autocmd("BufEnter", {
-		pattern = "*.tex",
+	vim.api.nvim_create_autocmd("FileType", {
+		pattern = M.config.filetypes,
 		callback = function(buffer)
 			vim.schedule(function()
 				M.setup_buf(buffer)
 			end)
 		end,
 	})
+	vim.api.nvim_create_autocmd("BufEnter", {
+		callback = function(buffer)
+			local ft = vim.api.nvim_get_option_value("filetype", { scope = "local", buf = buffer.buf })
+			if not filetype_enabled(ft) then
+				return
+			end
+			vim.schedule(function()
+				M.setup_buf(buffer)
+			end)
+		end,
+	})
+	local buffer = vim.api.nvim_get_current_buf()
+	if filetype_enabled(vim.api.nvim_get_option_value("filetype", { scope = "local", buf = buffer })) then
+		vim.schedule(function()
+			M.setup_buf(buffer)
+		end)
+	end
 	-- vim.keymap.set("n", "K", function()
 	-- 	local math_node = require("latex_concealer.conditions.luasnip").in_math()
 	-- 	if math_node then

@@ -2,6 +2,9 @@ local util = require("nvimtex.conditions.util")
 local M = {}
 function M.in_text()
 	local node = util.get_node_at_cursor()
+	if not node then
+		return false
+	end
 	while node do
 		if util.TEXT_NODES[node:type()] then
 			-- For \text{}
@@ -24,6 +27,9 @@ function M.im_enable()
 	local cursor = vim.api.nvim_win_get_cursor(0)
 	cursor[1] = cursor[1] - 1
 	local node = util.get_node_at_cursor()
+	if not node then
+		return false
+	end
 	while node do
 		if util.TEXT_NODES[node:type()] then
 			-- For \text{}

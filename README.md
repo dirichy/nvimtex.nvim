@@ -72,7 +72,7 @@ you can use `lazy.nvim` or other manager to install this plugin.
 ```lua
 	{
 		"dirichy/nvimtex.nvim",
-		ft = { "tex", "latex" },
+		ft = { "tex", "latex", "markdown" },
 		dependencies = {
 			"nvim-treesitter/nvim-treesitter",
 			"m00qek/baleia.nvim",
@@ -109,12 +109,18 @@ you can use `lazy.nvim` or other manager to install this plugin.
 			},
 		},
 		config = function()
+			require("luasnip").config.setup({ enable_autosnippets = true })
 			require("nvimtex").setup()
-            -- this line is to enable snippets
+			require("luasnip").filetype_extend("markdown", { "tex" })
+			-- this line is to enable snippets
 			require("luasnip.loaders.from_lua").load({})
 		end,
 	},
 ```
+
+For Markdown conceal, install the `markdown`, `markdown_inline`, and `latex`
+Tree-sitter parsers. LaTeX snippets are active inside Markdown LaTeX regions
+after `filetype_extend("markdown", { "tex" })`.
 
 # tests
 ```sh
