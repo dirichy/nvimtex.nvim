@@ -4,6 +4,7 @@
 ---@field changeHis table[]
 local M = {}
 local private_data = {}
+local nil_value = {}
 local initial_data =
 	{ delim = 0, placeholder = {}, parser_command_definition = false, conceal = true, preamble = false }
 M.__index = M
@@ -24,7 +25,11 @@ end
 function M:undo()
 	local changeLog = table.remove(self.changeHis)
 	for key, value in pairs(changeLog) do
-		self[private_data][key] = value
+		if value == nil_value then
+			self[private_data][key] = nil
+		else
+			self[private_data][key] = value
+		end
 	end
 	self.changeLog = self.changeHis[#self.changeHis]
 end
@@ -34,7 +39,10 @@ function M:get(key)
 end
 
 function M:set(key, value)
-	self.changeLog[key] = self.changeLog[key] or self[private_data][key]
+	if self.changeLog[key] == nil then
+		local old_value = self[private_data][key]
+		self.changeLog[key] = old_value == nil and nil_value or old_value
+	end
 	self[private_data][key] = value
 end
 
