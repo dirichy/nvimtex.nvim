@@ -203,23 +203,6 @@ Inline.__mod = function(a, b)
 	return a:style(b, true)
 end
 
-function Inline.__pow(a, b)
-	local c = b % superscript_tbl
-	if c then
-		return a:append(c)
-	else
-		return a:append(Inline:new({ "^{", "Normal" }), c, Inline:new({ "}", "Normal" }))
-	end
-end
-function Inline.__div(a, b)
-	local c = b % subscript_tbl
-	if c then
-		return a:append(c)
-	else
-		return a:append(Inline:new({ "_{", "Normal" }), c, Inline:new({ "}", "Normal" }))
-	end
-end
-
 function Inline:first_hl()
 	local first_item = self[private_data][1]
 	return first_item and first_item[2]

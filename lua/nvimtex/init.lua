@@ -19,6 +19,4 @@ function M.setup(opts)
 	require("nvimtex.textobject").setup_buf()
 end
 
-function M._deinit() end
-
 return M

@@ -308,15 +308,4 @@ function M.refresh_cursor()
 	end
 end
 
-function M.test()
-	local buffer = vim.api.nvim_win_get_buf(0)
-	local root
-	local tree = vim.treesitter.get_parser(buffer, "latex")
-	if tree and tree:trees() and tree:trees()[1] then
-		root = tree:trees()[1]:root()
-	end
-	local state = State:new()
-	M.default_processor(root, buffer, state)
-end
-
 return M
