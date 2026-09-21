@@ -13,13 +13,7 @@ local function iter_on_alphabet()
 		return string.char(i)
 	end
 end
-local M = vim.tbl_extend(
-	"force",
-	{},
-	require("nvimtex.latex.symbols"),
-	require("nvimtex.latex.hugeoperator").items,
-	require("nvimtex.latex.mathstyle").items
-)
+local M = vim.tbl_extend("force", {}, require("nvimtex.latex.symbols"), require("nvimtex.latex.hugeoperator").items)
 
 local function withonearg(source)
 	local alias = source.alias
@@ -40,7 +34,7 @@ local function withonearg(source)
 	end
 end
 
-for key, value in pairs(M) do
+for key, value in pairs(require("nvimtex.latex.mathstyle").items) do
 	if value.onechar_expand then
 		withonearg(value.onechar_expand)
 	end
