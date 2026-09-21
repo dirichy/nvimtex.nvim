@@ -1,138 +1,209 @@
 local LNode = require("nvimtex.parser.lnode")
-local generic_command = require("nvimtex.parser.generic_command")
-local Consumer = require("nvimtex.parser.consumer")
----@class Nvimtex.LNode.withfield
----@field [1] Nvimtex.LNode
----@field [2] string|nil
----@class Nvimtex.Consumer.result.residual
----@field finish Nvimtex.LNode.withfield
----@field residual Nvimtex.LNode.withfield[]
----@class Nvimtex.Parser
----@field stack Nvimtex.Consumer[]
----@field nodestack (Nvimtex.LNode.withfield|fun():Nvimtex.LNode,string)[]
+local latex_nodes = require("nvimtex.parser.latex_nodes")
+local Context = require("nvimtex.parser.context")
+local command_specs = require("nvimtex.parser.command_specs")
+local Stream = require("nvimtex.parser.stream")
+
 local M = {}
-M.__index = M
----@param consumer Nvimtex.Consumer[]|Nvimtex.Consumer|nil
----@return Nvimtex.Parser
-function M:new(consumer)
-	local res = {}
-	consumer = consumer or {}
-	if type(consumer) ~= "table" then
-		consumer = { consumer }
-	end
-	res.stack = consumer
-	res.nodestack = {}
-	setmetatable(res, M)
-	return res
+
+local parse_atom
+local parse_next
+
+local function is_script_node(node)
+	local node_type = node:type()
+	return node_type == "subscript" or node_type == "superscript"
 end
 
---- add a consumer
----@param consumer Nvimtex.Consumer
-function M:push_consumer(consumer)
-	table.insert(self.stack, consumer)
+---@param node Nvimtex.LNode
+---@param node_type string
+---@return Nvimtex.LNode
+local function command_marker(node, node_type)
+	local marker = LNode:new(node:field("command")[1] or node:child(0))
+	marker._type = node_type
+	return marker
 end
---- remove a consumer
----@return Nvimtex.Consumer
-function M:pop_consumer()
-	return table.remove(self.stack)
+
+---@param node Nvimtex.LNode
+---@param node_type string
+---@return Nvimtex.LNode
+local function empty_block(node, node_type)
+	local block = LNode:new(node_type)
+	local a, b, x = node:start()
+	block:set_range(a, b, x, a, b, x)
+	return block
 end
---- feed a lnode
----@param lnode Nvimtex.LNode
----@param source number|string
-function M:feed_to_consumer(lnode, field, source)
-	local consumer = self.stack[#self.stack]
-	if not consumer then
-		return Consumer.feedback.finish, { lnode, field }
+
+---@param result Nvimtex.LNode
+---@param block Nvimtex.LNode?
+---@param node Nvimtex.LNode
+---@param field string?
+---@param in_else_branch boolean
+---@return Nvimtex.LNode
+local function append_to_block(result, block, node, field, in_else_branch)
+	if block then
+		block:add_child(node, field)
+		return block
 	end
-	local feedback, res = consumer(lnode, field, source)
-	while feedback == Consumer.feedback.finish or feedback == Consumer.feedback.residual do
-		self:pop_consumer()
-		if feedback == Consumer.feedback.finish then
-			---@type Nvimtex.LNode
-			lnode, field = unpack(res)
-		else
-			---@type Nvimtex.LNode
-			lnode, field = unpack(res.finish)
-			for i = #res.residual, 1, -1 do
-				table.insert(self.nodestack, res.residual[i])
+
+	local node_type = in_else_branch and "else_block" or "if_block"
+	block = LNode:new(node_type)
+	block:add_child(node, field)
+	block:set_start(node)
+	result:add_child(block, node_type)
+	return block
+end
+
+---@param stream Nvimtex.Parser.Stream
+---@param source number|string
+---@param node Nvimtex.LNode
+---@param field string?
+---@return Nvimtex.LNode, string?
+local function parse_command(stream, source, node, field)
+	local command_name = latex_nodes.command_name(source, node)
+	if command_name == "ifmmode" then
+		return M.parse_if_statement(stream, source, node, field)
+	end
+
+	local spec = command_specs[command_name]
+	if not spec then
+		return node, field
+	end
+
+	local ctx = Context:new(stream, source, {
+		parse_atom = parse_atom,
+		parse_next = parse_next,
+	})
+	if spec.parse then
+		return spec.parse(ctx, node, field)
+	end
+
+	local result = LNode:new(node)
+	if spec.oarg then
+		local next_node = stream:peek()
+		if next_node and next_node:type() == "[" then
+			local optional_arg = ctx:read_group("[", "]", "brack_group", "optional_arg")
+			if optional_arg then
+				result:add_child(optional_arg, "optional_arg")
+				result:set_end(optional_arg)
 			end
 		end
-		consumer = self.stack[#self.stack]
-		if not consumer then
-			return Consumer.feedback.finish, { lnode, field }
+	end
+
+	local arg_count = #result:field("arg")
+	while arg_count < (spec.narg or 0) do
+		local arg = ctx:read_argument()
+		if not arg then
+			result:set_end()
+			return result, field
 		end
-		feedback, res = consumer(lnode, field, source)
+
+		result:add_child(arg, "arg")
+		result:set_end(arg)
+		arg_count = arg_count + 1
 	end
-	if feedback == Consumer.feedback.subconsumer then
-		self:push_consumer(res)
-		return Consumer.feedback.continue, nil
-	end
-	if feedback == Consumer.feedback.continue then
-		return feedback, nil
-	end
-	error("unknown return value of consumer: " .. feedback)
+
+	return result, field
 end
---- Used in consumer:feed, get next unconsumed node in nodestack
----@return Nvimtex.LNode|nil,string|nil
-function M:next_unconsumed_node()
-	local node = self.nodestack[#self.nodestack]
-	while type(node) == "function" do
-		local n, f = node()
-		if n then
-			return n, f
+
+---@param stream Nvimtex.Parser.Stream
+---@param source number|string
+---@param begin_node Nvimtex.LNode
+---@param result_field string?
+---@return Nvimtex.LNode, string?
+function M.parse_if_statement(stream, source, begin_node, result_field)
+	local result = LNode:new("if_statement")
+	result:add_child(command_marker(begin_node, "if"), "if")
+	result:set_start(begin_node)
+
+	local block
+	local in_else_branch = false
+	while true do
+		local node, field = parse_next(stream, source)
+		if not node then
+			if block then
+				block:set_end()
+			end
+			return result, result_field
+		end
+
+		local command_name = node:type() == "generic_command" and latex_nodes.command_name(source, node) or nil
+		if command_name == "else" then
+			if block then
+				block:set_end()
+			else
+				result:add_child(empty_block(node, "if_block"), "if_block")
+			end
+			block = nil
+			in_else_branch = true
+			result:add_child(command_marker(node, "else"), "else")
+		elseif command_name == "fi" then
+			if block then
+				block:set_end()
+			elseif not in_else_branch then
+				result:add_child(empty_block(node, "if_block"), "if_block")
+			end
+			result:add_child(command_marker(node, "fi"), "fi")
+			result:set_end(node)
+			return result, result_field
 		else
-			table.remove(self.nodestack)
-			node = self.nodestack[#self.nodestack]
+			block = append_to_block(result, block, node, field, in_else_branch)
 		end
 	end
+end
+
+---@param stream Nvimtex.Parser.Stream
+---@param source number|string
+---@return Nvimtex.LNode?, string?
+function parse_next(stream, source)
+	local node, field = parse_atom(stream, source)
+	if not node or is_script_node(node) or not stream.fold_scripts then
+		return node, field
+	end
+
+	local next_node = stream:peek()
+	if not next_node or not is_script_node(next_node) then
+		return node, field
+	end
+
+	local result = LNode:new("script")
+	result:add_child(node, "base")
+	result:set_start(node)
+	while next_node and is_script_node(next_node) do
+		local script_node = stream:next()
+		result:add_child(script_node, script_node:type())
+		result:set_end(script_node)
+		next_node = stream:peek()
+	end
+	return result, field
+end
+
+---@param stream Nvimtex.Parser.Stream
+---@param source number|string
+---@return Nvimtex.LNode?, string?
+function parse_atom(stream, source)
+	local node, field = stream:next()
 	if not node then
 		return nil
 	end
-	return unpack(table.remove(self.nodestack))
+
+	if node:type() == "generic_command" then
+		return parse_command(stream, source, node, field)
+	end
+
+	return node, field
 end
 
----@type Nvimtex.Parser[]
-local pool = {}
---- return a iter of lnode's children
----@param lnode Nvimtex.LNode
+---@param root Nvimtex.LNode
 ---@param source number|string
-function M.iter_children(lnode, source)
-	---@type Nvimtex.Parser
-	local parser = table.remove(pool) or M:new()
-	table.insert(parser.nodestack, lnode:iter_children())
-	---@type fun():Nvimtex.LNode?,string?
+---@return fun(): Nvimtex.LNode?, string?
+function M.iter_children(root, source)
+	local stream = Stream:new(root)
 	return function()
-		local n, f, c, feedback, res
-		repeat
-			repeat
-				n, f = parser:next_unconsumed_node()
-				if n then
-					local ntype = n:type()
-					if ntype == "text" then
-						table.insert(parser.nodestack, n:iter_children())
-						n, f = parser:next_unconsumed_node()
-					end
-					c = parser:get_consumer(n, source)
-					if c then
-						if type(c) == "function" then
-							parser:push_consumer(c)
-						end
-						if type(c) == "table" then
-							n, f = c[1], c[2]
-							c = nil
-						end
-					end
-				else
-					c = nil
-				end
-			until not c
-			feedback, res = parser:feed_to_consumer(n, f, source)
-		until feedback == Consumer.feedback.finish
-		return res[1], res[2]
+		return parse_next(stream, source)
 	end
 end
 
-function M:sexpr(lnode, field, source, result, range_comment)
+function M:sexpr(node, field, source, result, range_comment)
 	local root = false
 	if not result then
 		root = true
@@ -140,12 +211,12 @@ function M:sexpr(lnode, field, source, result, range_comment)
 	result = result or {}
 	range_comment = range_comment or {}
 	source = source or vim.api.nvim_win_get_buf(0)
-	lnode = lnode or vim.treesitter.get_parser(source, "latex"):trees()[1]:root()
-	table.insert(result, (field and field .. ": " or "") .. "(" .. lnode:type())
-	local a, b, c, d = lnode:range()
+	node = node or vim.treesitter.get_parser(source, "latex"):trees()[1]:root()
+	table.insert(result, (field and field .. ": " or "") .. "(" .. node:type())
+	local a, b, c, d = node:range()
 	table.insert(range_comment, " ; [" .. a .. ", " .. b .. "] - [" .. c .. ", " .. d .. "]")
-	for n, f in M.iter_children(lnode, source) do
-		self:sexpr(n, f, source, result, range_comment)
+	for child, child_field in M.iter_children(node, source) do
+		self:sexpr(child, child_field, source, result, range_comment)
 	end
 	result[#result] = result[#result] .. ")"
 	if root then
@@ -153,33 +224,6 @@ function M:sexpr(lnode, field, source, result, range_comment)
 			result[index] = result[index] .. value
 		end
 		return table.concat(result, "\n")
-	end
-end
---- get consumer of a node
----@param lnode Nvimtex.LNode
----@param source number|string
----@return Nvimtex.Consumer?
-function M:get_consumer(lnode, source)
-	if lnode:type() == "generic_command" then
-		local command_name = vim.treesitter.get_node_text(lnode:child(0), source):sub(2, -1)
-		if command_name == "ifmmode" then
-			local feedback, res = Consumer.if_statement(lnode)
-			return res
-		end
-		local arg_table = generic_command[command_name]
-		if arg_table then
-			local feedback, res = Consumer.generic_command(lnode, arg_table.oarg, arg_table.narg)
-			if feedback == Consumer.creater_feedback.success then
-				return res
-			end
-			if feedback == Consumer.creater_feedback.noneed then
-				return nil
-			end
-			if feedback == Consumer.creater_feedback.residual then
-				table.insert(self.nodestack, res.residual)
-				return res.finish
-			end
-		end
 	end
 end
 
@@ -215,31 +259,24 @@ function M.descendants_node_covering_range(root, source, a, b, c, d)
 	if not d then
 		c, d = a, b + 1
 	end
-	local res = {}
-	local flag = LNode.contains(root, a, b, c, d)
-	while flag do
-		flag = false
-		table.insert(res, root)
-		for n in M.iter_children(root, source) do
-			if LNode.contains(n, a, b, c, d) then
-				root = n
-				flag = true
+
+	local result = {}
+	local node = root
+	while LNode.contains(node, a, b, c, d) do
+		table.insert(result, node)
+		local child_covering_range
+		for child in M.iter_children(node, source) do
+			if LNode.contains(child, a, b, c, d) then
+				child_covering_range = child
 				break
 			end
 		end
+		if not child_covering_range then
+			break
+		end
+		node = child_covering_range
 	end
-	return res
-end
-
-function M:test()
-	local parser = M:new()
-	local node = require("nvimtex.conditions.luasnip").in_math()
-	print(parser:sexpr(node, nil, vim.api.nvim_win_get_buf(0)))
-	-- local iter = parser:iter_children(node, vim.api.nvim_win_get_buf(0))
-	-- for n, f in iter do
-	-- 	local a, b, c, d = n:range()
-	-- 	print(n:type(), a, b, c, d, f)
-	-- end
+	return result
 end
 
 return M
