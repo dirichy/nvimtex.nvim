@@ -340,7 +340,6 @@ M.items = {
 		},
 	},
 	["mathbb"] = {
-		conceal = M.mathbb,
 		narg = 1,
 		oarg = false,
 		class = "function",
