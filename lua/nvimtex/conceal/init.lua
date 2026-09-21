@@ -40,10 +40,10 @@ end, M.config.debounce)
 --- init for a buffer
 ---@param buffer table|number
 function M.setup_buf(buffer)
+	buffer = buffer and (type(buffer) == "number" and buffer or buffer.buf) or vim.api.nvim_get_current_buf()
 	if M.have_setup[buffer] then
 		return
 	end
-	buffer = buffer and (type(buffer) == "number" and buffer or buffer.buf) or vim.api.nvim_get_current_buf()
 	local parser = vim.treesitter.get_parser(buffer, "latex")
 	if parser and parser:trees()[1] and parser:trees()[1]:root() then
 		M.have_setup[buffer] = true
