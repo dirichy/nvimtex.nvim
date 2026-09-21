@@ -7,11 +7,15 @@ local default_args = function(path)
 	local cwd = string.match(path, "(.*)/[^/]*%.tex$")
 	local cursor = vim.api.nvim_win_get_cursor(0)[1]
 	local servername = vim.v.servername
+	--HACK: sioyek version is same, but some version support new_instance. use --help is very dirty
+	local sioyek_support_new_instance = vim.system({ "sioyek", "--help" }):wait()
+	sioyek_support_new_instance = string.find(sioyek_support_new_instance.stdout, "--instance-name", nil, true)
 
-	local system = vim.uv.os_uname().sysname
 	local args
-	if system == "Darwin" then
+	if sioyek_support_new_instance then
 		args = {
+			"--instance-name",
+			vim.fn.sha256(servername),
 			"--inverse-search",
 			"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
 			"--forward-search-file",
@@ -22,8 +26,6 @@ local default_args = function(path)
 		}
 	else
 		args = {
-			"--instance-name",
-			vim.fn.sha256(servername),
 			"--inverse-search",
 			"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
 			"--forward-search-file",
