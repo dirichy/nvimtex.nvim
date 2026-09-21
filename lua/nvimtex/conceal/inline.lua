@@ -129,7 +129,7 @@ function Inline:append(...)
 			for _, v in ipairs(data) do
 				table.insert(c[private_data], v)
 			end
-			c.width = c.width + add.width or get_length(data)
+			c.width = c.width + (add.width or get_length(data))
 		end
 	end
 	return c
