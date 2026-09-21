@@ -1,9 +1,9 @@
 local M = {}
-M.zathura = require("nvimtex.view.zathura")
-M.sioyek = require("nvimtex.view.sioyek")
-M.opts = {}
+M.opts = {
+	viewer = "sioyek",
+}
 function M.setup(opts)
-	M.opts = vim.tbl_deep_extend("force", M.opts, opts)
+	M.opts = vim.tbl_deep_extend("force", M.opts, opts or {})
 end
 local handle = nil
 vim.api.nvim_create_autocmd("VimLeave", {
@@ -14,11 +14,12 @@ vim.api.nvim_create_autocmd("VimLeave", {
 	end,
 })
 function M.view()
+	local viewer = require("nvimtex.view." .. M.opts.viewer)
 	if handle and handle:is_active() then
-		return M[M.opts.viewer]()
+		return viewer()
 	else
-		handle = M[M.opts.viewer]()
-		return M[M.opts.viewer]()
+		handle = viewer()
+		return handle
 	end
 end
 local sync_id
