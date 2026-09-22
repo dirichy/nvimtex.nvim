@@ -186,8 +186,13 @@ local extmark_and_buffer_and_ns_id_on_cursor = {}
 ---@param lnode Nvimtex.LNode
 ---@param state Nvimtex.State
 ---@param source number|string
-function M.default_processor(lnode, source, state)
-	if not (util.node_in_screen(lnode) or state:get("preamble")) then
+---@param viewport_top? integer
+---@param viewport_bottom? integer
+function M.default_processor(lnode, source, state, viewport_top, viewport_bottom)
+	if viewport_top == nil then
+		viewport_top, viewport_bottom = util.viewport()
+	end
+	if not (util.node_in_screen(lnode, viewport_top, viewport_bottom) or state:get("preamble")) then
 		return
 	end
 	local ltype = lnode:type()
@@ -215,7 +220,7 @@ function M.default_processor(lnode, source, state)
 	if feedback == M.feedback.continue or (not state:get("conceal") and feedback == M.feedback.conceal) then
 		for node in parser.iter_children(lnode, source) do
 			state:addUndoPoint()
-			M.default_processor(node, source, state)
+			M.default_processor(node, source, state, viewport_top, viewport_bottom)
 			state:undo()
 		end
 	end

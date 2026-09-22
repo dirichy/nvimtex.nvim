@@ -28,10 +28,6 @@ local function collect_latex_roots(langtree, roots, seen)
 		return
 	end
 
-	pcall(function()
-		langtree:parse(true)
-	end)
-
 	if langtree:lang() == "latex" then
 		for _, tree in ipairs(langtree:trees() or {}) do
 			local root = tree:root()
@@ -61,14 +57,28 @@ function M.latex_roots(buffer)
 	if M.config.latex_filetypes[ft] then
 		local ok, parser = pcall(vim.treesitter.get_parser, buffer, "latex")
 		if ok then
-			collect_latex_roots(parser, roots, seen)
+			local parsed, trees = pcall(function()
+				return parser:parse()
+			end)
+			if parsed then
+				for _, tree in ipairs(trees or {}) do
+					roots[#roots + 1] = tree:root()
+				end
+			end
 		end
 		return roots
 	end
 
 	local ok, parser = pcall(vim.treesitter.get_parser, buffer)
 	if ok then
-		collect_latex_roots(parser, roots, seen)
+		local top = vim.fn.line("w0") - 1
+		local bottom = vim.fn.line("w$") + 1
+		local parsed = pcall(function()
+			parser:parse({ { top, bottom } })
+		end)
+		if parsed then
+			collect_latex_roots(parser, roots, seen)
+		end
 	end
 	return roots
 end
@@ -90,86 +100,95 @@ function M.setup_buf(buffer)
 	if M.have_setup[buffer] then
 		return
 	end
-	local parser = vim.treesitter.get_parser(buffer, "latex")
-	if parser and parser:trees()[1] and parser:trees()[1]:root() then
-		M.have_setup[buffer] = true
-		-- vim.api.nvim_buf_attach(buffer, false, {
-		-- 	on_bytes = vim.schedule_wrap(function(_, _, _, sr, sc, sb, oer, oec, oeb, ner, nec, neb)
-		-- 		parser:parse()
-		-- 		local state = State:new()
-		-- 		local cnode = require("nvimtex.conditions").find_node(sr, sc, function(node)
-		-- 			local p = processor.processor[node:type()]
-		-- 			if p and p(node, buffer, state) == processor.feedback.conceal then
-		-- 				return true
-		-- 			end
-		-- 			return false
-		-- 		end)
-		-- 		if cnode then
-		-- 			processor.default_processor(cnode, buffer, state)
-		-- 		end
-		-- 	end),
-		-- })
-		-- parser:register_cbs({
-		-- 	on_changedtree = function(ranges, tree)
-		-- 		---@type TSNode
-		-- 		local root = tree:root()
-		-- 		-- local range = ranges[1]
-		-- 		-- if not range then
-		-- 		-- 	return
-		-- 		-- end
-		-- 		-- local flag = vim.treesitter.node_contains(root, range)
-		-- 		-- while flag do
-		-- 		-- 	flag = false
-		-- 		-- 	for n in root:iter_children() do
-		-- 		-- 		if vim.treesitter.node_contains(n, range) then
-		-- 		-- 			flag = n
-		-- 		-- 		end
-		-- 		-- 	end
-		-- 		-- 	if flag then
-		-- 		-- 		root = flag
-		-- 		-- 	end
-		-- 		-- end
-		-- 		vim.schedule(function()
-		-- 			M.refresh(buffer, root)
-		-- 		end)
-		-- 	end,
-		-- })
-		if M.config.refresh_events then
-			vim.api.nvim_create_autocmd(M.config.refresh_events, {
-				buffer = buffer,
-				callback = function()
-					M.refresh(buffer)
-				end,
-			})
-		end
-		if M.config.local_refresh_events then
-			vim.api.nvim_create_autocmd(M.config.local_refresh_events, {
-				buffer = buffer,
-				callback = function()
-					M.refresh(buffer)
-				end,
-			})
-		end
-		if M.config.cursor_refresh_events then
-			vim.api.nvim_create_autocmd(M.config.cursor_refresh_events, {
-				buffer = buffer,
-				callback = function()
-					M.refresh()
-					-- processor.refresh_cursor()
-				end,
-			})
-		end
-		M.refresh(buffer)
-		if M.config.conceal_cursor then
-			vim.api.nvim_set_option_value("concealcursor", M.config.conceal_cursor, { scope = "local" })
-		end
-
-		vim.api.nvim_set_option_value("conceallevel", 2, { scope = "local" })
+	if not vim.api.nvim_buf_is_valid(buffer) then
+		return
+	end
+	local ft = vim.api.nvim_get_option_value("filetype", { scope = "local", buf = buffer })
+	local ok, parser
+	if M.config.latex_filetypes[ft] then
+		ok, parser = pcall(vim.treesitter.get_parser, buffer, "latex")
 	else
+		ok, parser = pcall(vim.treesitter.get_parser, buffer)
+	end
+	if not ok or not parser then
 		vim.defer_fn(function()
 			M.setup_buf(buffer)
 		end, 50)
+		return
 	end
+	M.have_setup[buffer] = true
+	-- vim.api.nvim_buf_attach(buffer, false, {
+	-- 	on_bytes = vim.schedule_wrap(function(_, _, _, sr, sc, sb, oer, oec, oeb, ner, nec, neb)
+	-- 		parser:parse()
+	-- 		local state = State:new()
+	-- 		local cnode = require("nvimtex.conditions").find_node(sr, sc, function(node)
+	-- 			local p = processor.processor[node:type()]
+	-- 			if p and p(node, buffer, state) == processor.feedback.conceal then
+	-- 				return true
+	-- 			end
+	-- 			return false
+	-- 		end)
+	-- 		if cnode then
+	-- 			processor.default_processor(cnode, buffer, state)
+	-- 		end
+	-- 	end),
+	-- })
+	-- parser:register_cbs({
+	-- 	on_changedtree = function(ranges, tree)
+	-- 		---@type TSNode
+	-- 		local root = tree:root()
+	-- 		-- local range = ranges[1]
+	-- 		-- if not range then
+	-- 		-- 	return
+	-- 		-- end
+	-- 		-- local flag = vim.treesitter.node_contains(root, range)
+	-- 		-- while flag do
+	-- 		-- 	flag = false
+	-- 		-- 	for n in root:iter_children() do
+	-- 		-- 		if vim.treesitter.node_contains(n, range) then
+	-- 		-- 			flag = n
+	-- 		-- 		end
+	-- 		-- 	end
+	-- 		-- 	if flag then
+	-- 		-- 		root = flag
+	-- 		-- 	end
+	-- 		-- end
+	-- 		vim.schedule(function()
+	-- 			M.refresh(buffer, root)
+	-- 		end)
+	-- 	end,
+	-- })
+	if M.config.refresh_events then
+		vim.api.nvim_create_autocmd(M.config.refresh_events, {
+			buffer = buffer,
+			callback = function()
+				M.refresh(buffer)
+			end,
+		})
+	end
+	if M.config.local_refresh_events then
+		vim.api.nvim_create_autocmd(M.config.local_refresh_events, {
+			buffer = buffer,
+			callback = function()
+				M.refresh(buffer)
+			end,
+		})
+	end
+	if M.config.cursor_refresh_events then
+		vim.api.nvim_create_autocmd(M.config.cursor_refresh_events, {
+			buffer = buffer,
+			callback = function()
+				M.refresh()
+				-- processor.refresh_cursor()
+			end,
+		})
+	end
+	M.refresh(buffer)
+	if M.config.conceal_cursor then
+		vim.api.nvim_set_option_value("concealcursor", M.config.conceal_cursor, { scope = "local" })
+	end
+
+	vim.api.nvim_set_option_value("conceallevel", 2, { scope = "local" })
 end
 function M.forceRefresh(buffer)
 	buffer = buffer or vim.api.nvim_win_get_buf(0)
