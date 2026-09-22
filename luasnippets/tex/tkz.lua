@@ -195,7 +195,7 @@ local M = {
 		{ condition = condition }
 	),
 	s(
-		{ trig = "dep", regTrig = true, snippetType = "autosnippet" },
+		{ trig = "dep", snippetType = "autosnippet" },
 		fmta([[\tkzDrawEllipse(<>,<>,<>,<>)<>]], {
 			i(1),
 			i(2),

@@ -240,13 +240,14 @@ M = {
 			}
 		),
 		{
-			condition = function()
-				if not latex.in_table() then
+			condition = function(line_to_cursor)
+				if not string.match(line_to_cursor, "^%s*[^%s]$") then
 					return false
 				end
-				local curcol = vim.api.nvim_win_get_cursor(0)[1]
-				local line = vim.api.nvim_buf_get_lines(0, curcol - 1, curcol, false)[1]
-				return string.match(line, "^%s*[^%s]$")
+				if #line_to_cursor ~= #vim.api.nvim_get_current_line() then
+					return false
+				end
+				return latex.in_table()
 			end,
 		}
 	),

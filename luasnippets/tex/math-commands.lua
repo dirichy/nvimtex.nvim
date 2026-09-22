@@ -103,21 +103,21 @@ local M = {
 		{ condition = tex.in_math }
 	),
 	s(
-		{ trig = "tag", regTrig = true, snippetType = "autosnippet" },
+		{ trig = "tag", snippetType = "autosnippet" },
 		fmta("\\triangle", {}),
 		{ condition = tex.in_math }
 	),
 	s(
-		{ trig = "sag", regTrig = true, snippetType = "autosnippet" },
+		{ trig = "sag", snippetType = "autosnippet" },
 		fmta([[S_{\triangle <>}<>]], {
 			i(1),
 			i(0),
 		}),
 		{ condition = tex.in_math }
 	),
-	s({ trig = "ang", regTrig = true, snippetType = "autosnippet" }, fmta("\\angle", {}), { condition = tex.in_math }),
+	s({ trig = "ang", snippetType = "autosnippet" }, fmta("\\angle", {}), { condition = tex.in_math }),
 	s(
-		{ trig = "arc", regTrig = true, snippetType = "autosnippet" },
+		{ trig = "arc", snippetType = "autosnippet" },
 		fmta("\\wideparen{<>}<>", { i(1), i(0) }),
 		{ condition = tex.in_math }
 	),

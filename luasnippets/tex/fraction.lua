@@ -86,7 +86,7 @@ M = {
 		{ condition = tex.in_math }
 	),
 	s(
-		{ trig = "//", regTrig = true, snippetType = "autosnippet", priority = 3000 },
+		{ trig = "//", snippetType = "autosnippet", priority = 3000 },
 		fmta("\\frac{<>}{<>}", {
 			i(1),
 			i(2),
@@ -174,7 +174,7 @@ M = {
 		{ condition = tex.in_math }
 	),
 	s(
-		{ trig = '""', regTrig = true, snippetType = "autosnippet", priority = 3000 },
+		{ trig = '""', snippetType = "autosnippet", priority = 3000 },
 		fmta("\\overset{<>}{<>}", {
 			i(1),
 			i(2),

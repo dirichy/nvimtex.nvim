@@ -70,6 +70,20 @@ local make_label = function(_, snip)
 		return sn(nil, { t("") })
 	end
 end
+local function inline_math(trigger)
+	return s({ trig = trigger, snippetType = "autosnippet" }, fmta([[
+      \(<> \)<>
+      ]], { i(1), i(0) }), { condition = tex.in_text })
+end
+
+local function display_math(trigger)
+	return s({ trig = trigger, snippetType = "autosnippet" }, fmta([[
+      \[
+        <>
+      \]
+      ]], { i(1) }), { condition = tex.in_text })
+end
+
 M = {
 	s(
 		{ trig = text_line_begin_leader .. "(%a%a)", regTrig = true, snippetType = "autosnippet", priority = 10000 },
@@ -116,7 +130,7 @@ M = {
 		t("."),
 	}, { condition = line_begin }),
 	s(
-		{ trig = text_line_begin_leader .. "eg", regTrig = true, snippetType = "autosnippet", priority = 1000 },
+		{ trig = ".eg", snippetType = "autosnippet", priority = 1000 },
 		fmta(
 			[[
 \begin{<>}
@@ -139,32 +153,9 @@ M = {
 	s({ trig = "item", snippetType = "autosnippet", priority = 100 }, {
 		t("\\item"),
 	}, { condition = tex.in_item * line_begin }),
-	s(
-		{ trig = "[;j]j", regTrig = true, snippetType = "autosnippet" },
-		fmta(
-			[[
-      \(<> \)<>
-      ]],
-			{
-				i(1),
-				i(0),
-			}
-		),
-		{ condition = tex.in_text }
-	),
-	s(
-		{ trig = "[;t]t", regTrig = true, snippetType = "autosnippet" },
-		fmta(
-			[[
-      \[
-        <>
-      \]
-      ]],
-			{
-				i(1),
-			}
-		),
-		{ condition = tex.in_text }
-	),
+	inline_math(";j"),
+	inline_math("jj"),
+	display_math(";t"),
+	display_math("tt"),
 }
 return M
