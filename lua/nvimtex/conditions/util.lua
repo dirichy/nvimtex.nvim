@@ -33,9 +33,48 @@ M.CMD_NODES = {
 	begin = true,
 	["end"] = true,
 }
+
+local function is_latex_node(node)
+	while node do
+		local node_type = node:type()
+		if
+			node_type == "source_file"
+			or M.MATH_NODES[node_type]
+			or M.TEXT_NODES[node_type]
+			or M.ENV_NODES[node_type]
+			or M.CMD_NODES[node_type]
+		then
+			return true
+		end
+		node = node:parent()
+	end
+	return false
+end
+
 --- get node under cursor
 --- @return TSNode|nil
-M.get_node_at_cursor = vim.treesitter.get_node
+function M.get_node_at_cursor()
+	local ft = vim.api.nvim_get_option_value("filetype", { scope = "local" })
+	if ft == "markdown" or ft == "rmd" or ft == "quarto" then
+		pcall(function()
+			vim.treesitter.get_parser(0):parse(true)
+		end)
+		local node = vim.treesitter.get_node({ ignore_injections = false })
+		if is_latex_node(node) then
+			return node
+		end
+		return nil
+	end
+	local ok, node = pcall(vim.treesitter.get_node, { lang = "latex" })
+	if ok and node then
+		return node
+	end
+	return vim.treesitter.get_node()
+end
+
+function M.in_latex_tree()
+	return M.get_node_at_cursor() ~= nil
+end
 
 M.node_parent = function(node, bufer)
 	return node:parent()

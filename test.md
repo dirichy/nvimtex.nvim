@@ -1,8 +1,14 @@
 aaa
 
-$ \alpha $
-$\beta $
+$ \alpha \beta \gamma$
+
+$ \alpha \beta \alpha  $
 
 bbb 
-# a
+# a 
 ccc
+
+
+$$ 
+  
+$$ 
