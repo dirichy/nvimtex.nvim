@@ -14,6 +14,13 @@ local i = ls.insert_node
 local fmta = require("luasnip.extras.fmt").fmta
 local tex = require("nvimtex.conditions.luasnip")
 local rep = require("luasnip.extras").rep
+local textsnip = require("nvimtex.snip.textsnip")
+require("nvimtex.snip.input").register({
+	["if"] = "\\text{\\ if\\ }",
+	otherwise = "\\text{\\ otherwise\\ }",
+	["then"] = "\\text{\\ then\\ }",
+	since = "\\text{\\ since\\ }",
+})
 -- local pinyin = require("nvimtex.flypy")
 local knowntypes = {
 	pro = { en = "Problem", zh = "问题" },
@@ -29,20 +36,7 @@ local knowntypes = {
 	exe = { en = "Exercise", zh = "练习" },
 }
 
-return {
-	s({ trig = "if" }, {
-		t("\\text{\\ if\\ }"),
-	}, { condition = tex.in_math }),
-	s({ trig = "otherwise", snippetType = "autosnippet" }, {
-		t("\\text{\\ otherwise\\ }"),
-	}, { condition = tex.in_math }),
-	s({ trig = "then" }, {
-		t("\\text{\\ then\\ }"),
-	}, { condition = tex.in_math }),
-	s({ trig = "since" }, {
-		t("\\text{\\ since\\ }"),
-	}, { condition = tex.in_math }),
-
+local M = {
 	s({ trig = "label", snippetType = "autosnippet" }, {
 		t("\\label{"),
 		i(1),
@@ -116,3 +110,19 @@ return {
 	--   t("Sylow \\(p\\)-subgroup"),
 	-- }, { condition = tex.in_text }),
 }
+
+local function template_nodes(body)
+	local nodes = {}
+	for _ in body:gmatch("<>") do
+		nodes[#nodes + 1] = i(#nodes + 1)
+	end
+	return fmta(body, nodes)
+end
+
+for _, entries in ipairs({ textsnip.cmd2char, textsnip.cmd3char, textsnip.cmd4char }) do
+	for trigger, body in pairs(entries) do
+		M[#M + 1] = s({ trig = trigger }, template_nodes(body), { condition = tex.in_text })
+	end
+end
+
+return M

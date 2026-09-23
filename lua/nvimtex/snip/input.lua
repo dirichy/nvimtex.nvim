@@ -1,9 +1,41 @@
 local M = {}
 local namespace = vim.api.nvim_create_namespace("nvimtex.math_input")
+local registered_entries = {}
+local configured_entries = {}
 local default_punctuation = {
-	"<Space>", ".", ",", ";", ":", "?", "!", "/", "`", "'", '"',
-	"+", "-", "*", "=", "_", "^", "|", "(", ")", "[", "]", "{", "}", "<", ">",
-	"。", "，", "；", "：", "？", "！", "、",
+	"<Space>",
+	".",
+	",",
+	";",
+	":",
+	"?",
+	"!",
+	"/",
+	"`",
+	"'",
+	'"',
+	"+",
+	"-",
+	"*",
+	"=",
+	"_",
+	"^",
+	"|",
+	"(",
+	")",
+	"[",
+	"]",
+	"{",
+	"}",
+	"<",
+	">",
+	"。",
+	"，",
+	"；",
+	"：",
+	"？",
+	"！",
+	"、",
 }
 
 local function default_entries()
@@ -95,9 +127,24 @@ function M.expandable()
 	return replacement ~= nil
 end
 
+function M.register(entries)
+	vim.validate("entries", entries, "table")
+	for alias, replacement in pairs(entries) do
+		vim.validate("alias", alias, "string")
+		vim.validate("replacement", replacement, "string")
+		registered_entries[alias] = replacement
+		if M.entries and configured_entries[alias] == nil then
+			M.entries[alias] = replacement
+		end
+	end
+	return M
+end
+
 function M.setup(opts)
 	opts = opts or {}
-	M.entries = opts.entries or default_entries()
+	configured_entries = opts.entries or {}
+	M.entries = opts.entries and {} or default_entries()
+	M.entries = vim.tbl_extend("force", M.entries, registered_entries, configured_entries)
 	M.condition = opts.condition or require("nvimtex.conditions.luasnip").in_math
 	M.punctuation = normalize_punctuation(opts.punctuation)
 	M.boundary = opts.boundary or is_boundary
