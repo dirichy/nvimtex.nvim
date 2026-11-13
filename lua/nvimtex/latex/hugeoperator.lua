@@ -171,6 +171,22 @@ local Operators = {
 		auto_subscript = "[%a%d]",
 		auto_superscript = false,
 	},
+	["argmin"] = {
+		conceal = "argmin",
+		class = "operatorname",
+		tex = "\\argmin",
+		alias = "agn",
+		auto_subscript = "[%a%d]",
+		auto_superscript = false,
+	},
+	["argmax"] = {
+		conceal = "argmax",
+		class = "operatorname",
+		tex = "\\argmax",
+		alias = "agx",
+		auto_subscript = "[%a%d]",
+		auto_superscript = false,
+	},
 	["log"] = {
 		conceal = "log",
 		class = "operatorname",
