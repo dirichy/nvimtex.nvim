@@ -39,8 +39,19 @@ function M.in_text()
 		return false
 	end
 
-	local node = vim.treesitter.get_node()
-	return node ~= nil and not has_excluded_ancestor(node)
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	local row, col = cursor[1] - 1, cursor[2]
+	local ok, result = pcall(function()
+		local parser = vim.treesitter.get_parser(0)
+		parser:parse({ { row, row + 1 } })
+		local language = parser:language_for_range({ row, col, row, col }):lang()
+		if language ~= "markdown" and language ~= "markdown_inline" then
+			return false
+		end
+		local node = vim.treesitter.get_node({ ignore_injections = false })
+		return node ~= nil and not has_excluded_ancestor(node)
+	end)
+	return ok and result or false
 end
 
 return M

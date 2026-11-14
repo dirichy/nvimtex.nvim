@@ -79,11 +79,21 @@ end
 ---@return Nvimtex.LNode, Nvimtex.LNode?
 function M:split_first_char(node, head_type)
 	local text = self:node_text(node) or ""
-	if #text <= 1 then
+	local character = text:match("^[%z\1-\127\194-\244][\128-\191]*") or text:sub(1, 1)
+	if #text <= #character then
 		return node, nil
 	end
-	return self:slice_node(node, 0, 1, head_type), self:slice_node(node, 1, #text)
+	return self:slice_node(node, 0, #character, head_type), self:slice_node(node, #character, #text)
 end
+
+local argument_boundaries = {
+	["$"] = true,
+	["$$"] = true,
+	["\\)"] = true,
+	["\\]"] = true,
+	["}"] = true,
+	["end"] = true,
+}
 
 ---@return Nvimtex.LNode?, string?
 function M:read_char()
@@ -124,6 +134,10 @@ function M:read_group(open_type, close_type, result_type, result_field)
 			group:set_end(close)
 			return group, result_field
 		end
+		if next_node and argument_boundaries[next_node:type()] then
+			group:set_end()
+			return group, result_field
+		end
 
 		local node, field = self:next_node()
 		if not node then
@@ -139,6 +153,10 @@ end
 function M:read_argument()
 	local node, field = self:next_raw()
 	if not node then
+		return nil
+	end
+	if argument_boundaries[node:type()] then
+		self:push_front(node, field)
 		return nil
 	end
 

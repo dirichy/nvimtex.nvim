@@ -1,13 +1,27 @@
 local M = {}
-local State = require("nvimtex.conceal.state")
 local processor = require("nvimtex.conceal.processor")
-local concealer = require("nvimtex.conceal.concealer")
 local extmark = require("nvimtex.conceal.extmark")
-local util = require("nvimtex.util")
 M.enabled = true
+local refresh_timers = {}
+
+local function clear_marks(buffer)
+	processor.begin_cursor_refresh(buffer)
+	for _, namespace in pairs(extmark.ns_id) do
+		vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+	end
+end
+
 function M.toggle()
 	M.enabled = not M.enabled
-	M.refresh(vim.api.nvim_win_get_buf(0))
+	for buffer in pairs(M.have_setup) do
+		if vim.api.nvim_buf_is_valid(buffer) then
+			if M.enabled then
+				M.refresh(buffer)
+			else
+				clear_marks(buffer)
+			end
+		end
+	end
 end
 M.have_setup = {}
 
@@ -21,7 +35,18 @@ M.config = {
 	local_refresh_events = { "TextChangedI", "TextChanged" },
 	cursor_refresh_events = { "CursorMovedI", "CursorMoved" },
 	debounce = 50,
+	viewport_margin = 3,
+	binary_threshold = 16,
+	child_lookbehind = 2,
 }
+
+---@class Nvimtex.Conceal.BufferState
+---@field preamble_dirty boolean
+---@field preamble_end? integer zero-based document start row
+---@field changedtick? integer source version represented by the extmarks
+
+---@type table<integer,Nvimtex.Conceal.BufferState>
+M.buffer_state = {}
 
 local function collect_latex_roots(langtree, roots, seen)
 	if not langtree then
@@ -48,6 +73,24 @@ local function filetype_enabled(filetype)
 	return vim.tbl_contains(M.config.filetypes, filetype)
 end
 
+---Return a valid window displaying the buffer, preferring the current window.
+---@param buffer integer
+---@return integer?
+local function window_for_buffer(buffer)
+	-- Viewport-dependent work needs an actual window, not merely a valid buffer.
+	local current = vim.api.nvim_get_current_win()
+	if vim.api.nvim_win_get_buf(current) == buffer then
+		return current
+	end
+	for _, win in ipairs(vim.fn.win_findbuf(buffer)) do
+		if vim.api.nvim_win_is_valid(win) then
+			return win
+		end
+	end
+end
+
+---@param buffer? integer
+---@return Nvimtex.LNode[]
 function M.latex_roots(buffer)
 	buffer = buffer or vim.api.nvim_get_current_buf()
 	local roots = {}
@@ -71,8 +114,12 @@ function M.latex_roots(buffer)
 
 	local ok, parser = pcall(vim.treesitter.get_parser, buffer)
 	if ok then
-		local top = vim.fn.line("w0") - 1
-		local bottom = vim.fn.line("w$") + 1
+		local win = window_for_buffer(buffer)
+		if not win then
+			return roots
+		end
+		local top, bottom = require("nvimtex.conceal.util").viewport(win)
+		bottom = bottom + 2
 		local parsed = pcall(function()
 			parser:parse({ { top, bottom } })
 		end)
@@ -83,130 +130,181 @@ function M.latex_roots(buffer)
 	return roots
 end
 
-M.refresh = util.debounce(function(buffer, root)
-	buffer = buffer or vim.api.nvim_win_get_buf(0)
-	vim.api.nvim_buf_clear_namespace(buffer, extmark.ns_id.fast, 0, -1)
-	local roots = root and { root } or M.latex_roots(buffer)
-	for _, latex_root in ipairs(roots) do
-		local state = State:new()
-		processor.default_processor(latex_root, buffer, state)
+local function refresh_now(buffer, root)
+	if not vim.api.nvim_buf_is_loaded(buffer) then
+		return
 	end
-end, M.config.debounce)
+	if not M.enabled then
+		clear_marks(buffer)
+		return
+	end
+	local win = window_for_buffer(buffer)
+	if not win then
+		return
+	end
+	-- Renderer cursor context and window options must belong to this buffer.
+	vim.api.nvim_win_call(win, function()
+		vim.wo.conceallevel = 2
+		if M.config.conceal_cursor then
+			vim.wo.concealcursor = M.config.conceal_cursor
+		end
+		local state = M.buffer_state[buffer]
+		local tick = vim.api.nvim_buf_get_changedtick(buffer)
+		if not state or state.changedtick ~= tick then
+			-- Extmarks move with edits, but their generated text does not update.
+			clear_marks(buffer)
+			if state then
+				state.changedtick = tick
+			end
+		end
+		vim.api.nvim_buf_clear_namespace(buffer, extmark.ns_id.fast, 0, -1)
+		local roots = root and { root } or M.latex_roots(buffer)
+		processor.begin_cursor_refresh(buffer)
+		local ft = vim.bo[buffer].filetype
+		local top, bottom = require("nvimtex.conceal.util").viewport(win)
+		top = math.max(top - M.config.viewport_margin, 0)
+		bottom = math.min(bottom + M.config.viewport_margin, vim.api.nvim_buf_line_count(buffer) - 1)
+		for _, latex_root in ipairs(roots) do
+			local document
+			if M.config.latex_filetypes[ft] then
+				document = processor.find_document(latex_root, buffer)
+				if state and state.preamble_dirty then
+					processor.scan_preamble(latex_root, buffer, document)
+					state.preamble_end = document and document:start() or nil
+					state.preamble_dirty = false
+					clear_marks(buffer)
+				end
+			end
+			processor.process_conceal(document or latex_root, buffer, top, bottom, {
+				binary_threshold = M.config.binary_threshold,
+				lookbehind = M.config.child_lookbehind,
+			})
+		end
+	end)
+end
 
---- init for a buffer
----@param buffer table|number
+---Cancel pending work before replacing a timer or releasing a buffer.
+---@param buffer integer
+local function cancel_refresh(buffer)
+	local timer = refresh_timers[buffer]
+	if timer and not timer:is_closing() then
+		timer:stop()
+		timer:close()
+	end
+	refresh_timers[buffer] = nil
+end
+
+---Independent timers prevent activity in one buffer from cancelling another.
+---@param buffer? integer
+---@param root? Nvimtex.LNode
+function M.refresh(buffer, root)
+	buffer = buffer and buffer ~= 0 and buffer or vim.api.nvim_get_current_buf()
+	cancel_refresh(buffer)
+	refresh_timers[buffer] = vim.defer_fn(function()
+		refresh_timers[buffer] = nil
+		refresh_now(buffer, root)
+	end, M.config.debounce)
+end
+
+local function detach(buffer)
+	cancel_refresh(buffer)
+	processor.detach(buffer)
+	M.buffer_state[buffer] = nil
+	M.have_setup[buffer] = nil
+	pcall(vim.api.nvim_del_augroup_by_name, "nvimtex.conceal." .. buffer)
+end
+
+---Initialize conceal for a buffer; missing parsers can be retried on BufEnter.
+---@param buffer? integer|{buf:integer}
 function M.setup_buf(buffer)
 	buffer = buffer and (type(buffer) == "number" and buffer or buffer.buf) or vim.api.nvim_get_current_buf()
+	buffer = buffer ~= 0 and buffer or vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_loaded(buffer) then
+		return
+	end
 	if M.have_setup[buffer] then
+		M.refresh(buffer)
 		return
 	end
-	if not vim.api.nvim_buf_is_valid(buffer) then
+	local ft = vim.bo[buffer].filetype
+	if not filetype_enabled(ft) then
 		return
 	end
-	local ft = vim.api.nvim_get_option_value("filetype", { scope = "local", buf = buffer })
-	local ok, parser
-	if M.config.latex_filetypes[ft] then
-		ok, parser = pcall(vim.treesitter.get_parser, buffer, "latex")
-	else
-		ok, parser = pcall(vim.treesitter.get_parser, buffer)
-	end
+	local ok, parser = pcall(vim.treesitter.get_parser, buffer, M.config.latex_filetypes[ft] and "latex" or nil)
 	if not ok or not parser then
-		vim.defer_fn(function()
-			M.setup_buf(buffer)
-		end, 50)
 		return
 	end
 	M.have_setup[buffer] = true
-	-- vim.api.nvim_buf_attach(buffer, false, {
-	-- 	on_bytes = vim.schedule_wrap(function(_, _, _, sr, sc, sb, oer, oec, oeb, ner, nec, neb)
-	-- 		parser:parse()
-	-- 		local state = State:new()
-	-- 		local cnode = require("nvimtex.conditions").find_node(sr, sc, function(node)
-	-- 			local p = processor.processor[node:type()]
-	-- 			if p and p(node, buffer, state) == processor.feedback.conceal then
-	-- 				return true
-	-- 			end
-	-- 			return false
-	-- 		end)
-	-- 		if cnode then
-	-- 			processor.default_processor(cnode, buffer, state)
-	-- 		end
-	-- 	end),
-	-- })
-	-- parser:register_cbs({
-	-- 	on_changedtree = function(ranges, tree)
-	-- 		---@type TSNode
-	-- 		local root = tree:root()
-	-- 		-- local range = ranges[1]
-	-- 		-- if not range then
-	-- 		-- 	return
-	-- 		-- end
-	-- 		-- local flag = vim.treesitter.node_contains(root, range)
-	-- 		-- while flag do
-	-- 		-- 	flag = false
-	-- 		-- 	for n in root:iter_children() do
-	-- 		-- 		if vim.treesitter.node_contains(n, range) then
-	-- 		-- 			flag = n
-	-- 		-- 		end
-	-- 		-- 	end
-	-- 		-- 	if flag then
-	-- 		-- 		root = flag
-	-- 		-- 	end
-	-- 		-- end
-	-- 		vim.schedule(function()
-	-- 			M.refresh(buffer, root)
-	-- 		end)
-	-- 	end,
-	-- })
-	if M.config.refresh_events then
-		vim.api.nvim_create_autocmd(M.config.refresh_events, {
-			buffer = buffer,
-			callback = function()
+	M.buffer_state[buffer] = { preamble_dirty = true }
+	vim.api.nvim_buf_attach(buffer, false, {
+		on_lines = function(_, changed_buffer, _, first_line)
+			local state = M.buffer_state[changed_buffer]
+			if state and (state.preamble_end == nil or first_line <= state.preamble_end) then
+				state.preamble_dirty = true
+			end
+		end,
+		on_reload = function(_, changed_buffer)
+			local state = M.buffer_state[changed_buffer]
+			if state then
+				state.preamble_dirty = true
+				state.changedtick = nil
+			end
+			M.refresh(changed_buffer)
+		end,
+		on_detach = function(_, detached_buffer)
+			detach(detached_buffer)
+		end,
+	})
+	local group = vim.api.nvim_create_augroup("nvimtex.conceal." .. buffer, { clear = true })
+	local events = { "BufWinEnter", "WinEnter" }
+	for _, configured in ipairs({
+		M.config.refresh_events,
+		M.config.local_refresh_events,
+		M.config.cursor_refresh_events,
+	}) do
+		for _, event in ipairs(configured or {}) do
+			if not vim.tbl_contains(events, event) then
+				events[#events + 1] = event
+			end
+		end
+	end
+	vim.api.nvim_create_autocmd(events, {
+		group = group,
+		buffer = buffer,
+		callback = function()
+			M.refresh(buffer)
+		end,
+	})
+	vim.api.nvim_create_autocmd({ "WinScrolled", "WinResized" }, {
+		group = group,
+		callback = function()
+			if window_for_buffer(buffer) then
 				M.refresh(buffer)
-			end,
-		})
-	end
-	if M.config.local_refresh_events then
-		vim.api.nvim_create_autocmd(M.config.local_refresh_events, {
-			buffer = buffer,
-			callback = function()
-				M.refresh(buffer)
-			end,
-		})
-	end
-	if M.config.cursor_refresh_events then
-		vim.api.nvim_create_autocmd(M.config.cursor_refresh_events, {
-			buffer = buffer,
-			callback = function()
-				M.refresh()
-				-- processor.refresh_cursor()
-			end,
-		})
-	end
+			end
+		end,
+	})
 	M.refresh(buffer)
-	if M.config.conceal_cursor then
-		vim.api.nvim_set_option_value("concealcursor", M.config.conceal_cursor, { scope = "local" })
-	end
-
-	vim.api.nvim_set_option_value("conceallevel", 2, { scope = "local" })
 end
+
+---@param buffer? integer
 function M.forceRefresh(buffer)
-	buffer = buffer or vim.api.nvim_win_get_buf(0)
-	for key, value in pairs(extmark.ns_id) do
-		vim.api.nvim_buf_clear_namespace(buffer, value, 0, -1)
+	buffer = buffer and buffer ~= 0 and buffer or vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_loaded(buffer) then
+		return
+	end
+	clear_marks(buffer)
+	local state = M.buffer_state[buffer]
+	if state then
+		state.preamble_dirty = true
 	end
 	M.refresh(buffer)
 end
 
 function M.setup(opts)
-	M.config = vim.tbl_deep_extend("force", M.config, opts)
-	-- counter.setup(M.config.counter)
-	-- extmark.setup(M.config.extmark)
-	-- processor.setup(M.config.processor)
-	-- vim.schedule(function()
-	-- 	M.setup_buf({ buf = vim.api.nvim_get_current_buf() })
-	-- end)
+	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+	local group = vim.api.nvim_create_augroup("nvimtex.conceal", { clear = true })
 	vim.api.nvim_create_autocmd("FileType", {
+		group = group,
 		pattern = M.config.filetypes,
 		callback = function(buffer)
 			vim.schedule(function()
@@ -215,6 +313,7 @@ function M.setup(opts)
 		end,
 	})
 	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
 		callback = function(buffer)
 			local ft = vim.api.nvim_get_option_value("filetype", { scope = "local", buf = buffer.buf })
 			if not filetype_enabled(ft) then
@@ -231,14 +330,6 @@ function M.setup(opts)
 			M.setup_buf(buffer)
 		end)
 	end
-	-- vim.keymap.set("n", "K", function()
-	-- 	local math_node = require("latex_concealer.conditions.luasnip").in_math()
-	-- 	if math_node then
-	-- 		require("latex_concealer.processor").node2grid(vim.api.nvim_win_get_buf(0), math_node):show()
-	-- 	else
-	-- 		vim.api.nvim_exec2("Lspsaga hover_doc", {})
-	-- 	end
-	-- end)
 end
 
 return M

@@ -31,7 +31,28 @@ A LaTeX plugin for neovim, still alpha.
   \fi
 }
 ```
-in this example, `testa` and `testb` are parsed, `testc` and `testd` are not parsed. 
+in this example, `testa` and `testb` are parsed, `testc` and `testd` are not parsed.
+
+Document commands are compiled from the preamble and scoped to their buffer.
+Supported expansions include repeated arguments, an optional first argument,
+forward references, symbols, fractions, roots, fonts, and scripts. Unsupported
+or recursive expansions keep the invocation visible. Editing an expanded command
+reveals its complete source until the cursor leaves it.
+
+Conceal updates the visible region on edits, cursor movement, and scrolling.
+`require("nvimtex.conceal").toggle()` turns it off or on for initialized buffers;
+`forceRefresh()` rebuilds the current buffer's definitions and display.
+
+```lua
+require("nvimtex").setup({
+  conceal = {
+    debounce = 50,       -- milliseconds, independently per buffer
+    viewport_margin = 3,
+    binary_threshold = 16,
+    child_lookbehind = 2,
+  },
+})
+```
 
 ## compiling
 1. support smartly guess compiler for the `tex` file by
@@ -127,3 +148,11 @@ after `filetype_extend("markdown", { "tex" })`.
 sh tests/run_headless.sh
 ```
 This runs smart backend strategy tests, mocked compile pipeline tests, and real TeX fixture tests. Real engine cases are skipped when the corresponding executable exists but cannot compile cleanly in the local environment.
+
+Run just the parser and conceal regression suite with:
+```sh
+sh tests/run_conceal.sh
+```
+It covers command expansion and buffer isolation, edit invalidation, cursor
+reveal, adjacent formulas, scrolling, split windows, toggling, and buffer cleanup.
+The test scripts return a nonzero status on assertion failure.

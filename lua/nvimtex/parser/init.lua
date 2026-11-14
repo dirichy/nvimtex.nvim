@@ -6,6 +6,18 @@ local Stream = require("nvimtex.parser.stream")
 
 local M = {}
 
+-- Document definitions must not change parsing in another buffer.
+---@type table<integer,table<string,table>>
+M.buffer_command_specs = {}
+
+---@param name string
+---@param source number|string
+---@return table?
+function M.command_spec(name, source)
+	local specs = type(source) == "number" and M.buffer_command_specs[source]
+	return specs and specs[name] or command_specs[name]
+end
+
 local parse_atom
 local parse_next
 
@@ -64,7 +76,7 @@ local function parse_command(stream, source, node, field)
 		return M.parse_if_statement(stream, source, node, field)
 	end
 
-	local spec = command_specs[command_name]
+	local spec = M.command_spec(command_name, source)
 	if not spec then
 		return node, field
 	end
@@ -195,12 +207,54 @@ end
 
 ---@param root Nvimtex.LNode
 ---@param source number|string
+---@param opts? Nvimtex.Parser.StreamOptions
 ---@return fun(): Nvimtex.LNode?, string?
-function M.iter_children(root, source)
-	local stream = Stream:new(root)
+function M.iter_children(root, source, opts)
+	local stream = Stream:new(root, opts)
 	return function()
 		return parse_next(stream, source)
 	end
+end
+
+---Collect logical children, removing only a group's own delimiter tokens.
+---Literal brackets inside the group remain part of its contents.
+---@param node Nvimtex.LNode
+---@param source number|string
+---@return Nvimtex.LNode[]
+function M.content_nodes(node, source)
+	local children = {}
+	for child in M.iter_children(node, source) do
+		children[#children + 1] = child
+	end
+	local opening, closing = latex_nodes.group_delimiters(node)
+	if opening then
+		if children[#children] and children[#children]:type() == closing then
+			table.remove(children)
+		end
+		if children[1] and children[1]:type() == opening then
+			table.remove(children, 1)
+		end
+	end
+	return children
+end
+
+---Lay out command arguments with the optional slot first. The array may have
+---a hole at slot 1; callers must use the returned count instead of # or ipairs.
+---@param node Nvimtex.LNode
+---@param optional? boolean
+---@return table<integer,Nvimtex.LNode> nodes
+---@return integer count
+function M.command_arguments(node, optional)
+	local nodes = {}
+	local shift = optional and 1 or 0
+	if optional then
+		nodes[1] = node:field("optional_arg")[1]
+	end
+	local required = node:field("arg")
+	for index, argument in ipairs(required) do
+		nodes[index + shift] = argument
+	end
+	return nodes, #required + shift
 end
 
 function M:sexpr(node, field, source, result, range_comment)

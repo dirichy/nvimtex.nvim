@@ -1,11 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 cd "$(dirname "$0")/.."
-nvim --headless -u NONE -i NONE -S tests/headless/util_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/parser_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/conceal_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/markdown_conditions_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/surround_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/smart_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/compile_spec.lua -c 'qa'
-nvim --headless -u NONE -i NONE -S tests/headless/compile_real_spec.lua -c 'qa'
+XDG_STATE_HOME="${XDG_STATE_HOME:-/tmp/nvimtex-headless-state}"
+export XDG_STATE_HOME
+nvim --headless -u NONE -i NONE -l tests/headless/util_spec.lua
+sh tests/run_conceal.sh
+nvim --headless -u NONE -i NONE -l tests/headless/markdown_conditions_spec.lua
+nvim --headless -u NONE -i NONE -l tests/headless/surround_spec.lua
+nvim --headless -u NONE -i NONE -l tests/headless/smart_spec.lua
+nvim --headless -u NONE -i NONE -l tests/headless/compile_spec.lua
+nvim --headless -u NONE -i NONE -l tests/headless/compile_real_spec.lua

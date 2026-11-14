@@ -274,3 +274,30 @@ eq(unfinished_if:type(), "if_statement", "unfinished if statement type")
 eq(vim.treesitter.get_node_text(unfinished_if:field("if_block")[1], unfinished_if_source), "a", "unfinished if block")
 eq(#unfinished_if:field("fi"), 0, "unfinished if has no fi")
 print("ok parser unfinished if")
+
+local unicode_source = "\\fracαβx"
+local unicode_children = parsed_children(unicode_source)
+eq(
+	child_texts(unicode_children[1].node, unicode_source, "arg"),
+	{ "α", "β" },
+	"implicit arguments use complete UTF-8 characters"
+)
+eq(vim.treesitter.get_node_text(unicode_children[2].node, unicode_source), "x", "UTF-8 argument residual")
+
+for _, delimiters in ipairs({ { "$", "$" }, { "$$", "$$" }, { "\\(", "\\)" }, { "\\[", "\\]" }, { "{", "}" } }) do
+	local incomplete_source = delimiters[1] .. "\\frac1" .. delimiters[2]
+	local container = parse(incomplete_source):child(0)
+	local command
+	for child in Parser.iter_children(container, incomplete_source) do
+		if child:type() == "generic_command" then
+			command = child
+			break
+		end
+	end
+	eq(
+		child_texts(assert(command), incomplete_source, "arg"),
+		{ "1" },
+		"incomplete command does not consume boundary " .. delimiters[2]
+	)
+end
+print("ok parser UTF-8 arguments and incomplete command boundaries")
