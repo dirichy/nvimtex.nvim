@@ -8,6 +8,7 @@ local mathstyle = require("nvimtex.latex.mathstyle")
 local LNode = require("nvimtex.parser.lnode")
 local hl = require("nvimtex.highlight")
 local parser = require("nvimtex.parser")
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 
 ---@type Nvimtex.concealer
 function M.direct_concealer(lnode, source, state)
@@ -61,7 +62,9 @@ function M.conceal_arg_without_bracket(lnode, source, state)
 		local res = inline:new({})
 		prev_node = iter()
 		for node in iter do
-			res:append(M.conceal_node_with_state(prev_node, source, state, M.default_concealer))
+			if prev_node then
+				res:append(M.conceal_node_with_state(prev_node, source, state, M.default_concealer))
+			end
 			prev_node = node
 		end
 		return res
@@ -79,7 +82,7 @@ function M.style(map, highlight)
 		f = map
 	end
 	return function(node, source, state)
-		local arg_nodes = node:field("arg")
+		local arg_nodes = latex_nodes.arguments(node)
 		if #arg_nodes == 0 then
 			return M.fallback_concealer(node, source, state)
 		end
@@ -113,7 +116,7 @@ end
 function M.script(script_char, map, highlight)
 	---@param node TSNode
 	return function(node, source, state)
-		local arg_node = node:named_child(0)
+		local arg_node = latex_nodes.script_argument(node)
 		if not arg_node then
 			return
 		end
@@ -146,7 +149,7 @@ function M.create_command_concealer(fn, narg, default)
 		fn = fn.concealer
 	end
 	return function(lnode, source, state)
-		local narg_res = lnode:field("arg")
+		local narg_res = latex_nodes.arguments(lnode)
 		if narg and #narg_res ~= narg then
 			return M.fallback_concealer(lnode, source, state)
 		end
@@ -156,7 +159,7 @@ function M.create_command_concealer(fn, narg, default)
 		end
 		local arg_res = {}
 		if default then
-			local oarg_res = lnode:field("optional_arg")[1] or default
+			local oarg_res = latex_nodes.optional_argument(lnode) or default
 			if type(oarg_res) ~= "boolean" then
 				oarg_res = M.conceal_arg_without_bracket(oarg_res, source, state)
 				table.insert(arg_res, oarg_res)
@@ -255,7 +258,7 @@ M.map = {
 M.concealer = {
 	if_statement = function(lnode, source, state)
 		return M.conceal_node_with_state(
-			state:get("mmode") and lnode:field("if_block")[1] or lnode:field("else_block")[1],
+			state:get("mmode") and latex_nodes.branch(lnode) or latex_nodes.branch(lnode, true),
 			source,
 			state,
 			M.fallback_concealer
@@ -270,8 +273,10 @@ M.concealer = {
 		return inline:new(source, lnode)
 	end,
 	generic_command = function(lnode, source, state)
-		local command_node = lnode:field("command")[1]
-		local command_name = vim.treesitter.get_node_text(command_node, source):sub(2, -1)
+		local command_name = latex_nodes.command_name(source, lnode)
+		if not command_name then
+			return M.fallback_concealer(lnode, source, state)
+		end
 		local c = M.map.generic_command[command_name]
 		if c then
 			return M.conceal_node_with_state(lnode, source, state, c)

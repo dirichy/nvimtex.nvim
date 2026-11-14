@@ -156,3 +156,6 @@ sh tests/run_conceal.sh
 It covers command expansion and buffer isolation, edit invalidation, cursor
 reveal, adjacent formulas, scrolling, split windows, toggling, and buffer cleanup.
 The test scripts return a nonzero status on assertion failure.
+
+Parser extensions use TSNode-style nodes and semantic helpers instead of grammar
+fields. See the bilingual [parser API notes](docs/parser.md) for examples and migration details.

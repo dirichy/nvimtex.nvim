@@ -1,4 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 
 local State = require("nvimtex.conceal.state")
 local old = require("nvimtex.conceal.concealer")
@@ -16,8 +17,7 @@ local function find(node, source, node_type, command_name)
 		if not command_name then
 			return node
 		end
-		local command = node:field("command")[1]
-		if command and vim.treesitter.get_node_text(command, source):sub(2) == command_name then
+		if latex_nodes.command_name(source, node) == command_name then
 			return node
 		end
 	end

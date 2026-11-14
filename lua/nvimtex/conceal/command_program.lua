@@ -70,7 +70,7 @@ local function compile_call(node, source, spec, resolve, program)
 	if type(spec) == "function" then
 		spec = { render = spec }
 	end
-	if spec.narg and #node:field("arg") ~= spec.narg then
+	if spec.narg and #latex_nodes.arguments(node) ~= spec.narg then
 		append(program, OP_FAILURE)
 		return
 	end
@@ -113,7 +113,7 @@ function compile_node(node, source, resolve, program)
 		return
 	end
 	if Command.scripts[node_type] then
-		local argument = node:named_child(0)
+		local argument = latex_nodes.script_argument(node)
 		if not argument then
 			append(program, OP_FAILURE)
 			return
@@ -127,7 +127,7 @@ function compile_node(node, source, resolve, program)
 		return
 	end
 	if node_type == "if_statement" then
-		local block = node:field("if_block")[1]
+		local block = latex_nodes.branch(node)
 		compile_sequence(block and parser.content_nodes(block, source) or {}, source, resolve, program)
 		return
 	end

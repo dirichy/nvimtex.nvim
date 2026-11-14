@@ -1,4 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 
 local function eq(actual, expected, label)
 	if not vim.deep_equal(actual, expected) then
@@ -22,8 +23,7 @@ local function find_command(root, source, wanted)
 			return
 		end
 		if node:type() == "generic_command" then
-			local command = node:field("command")[1]
-			local name = command and vim.treesitter.get_node_text(command, source):sub(2)
+			local name = latex_nodes.command_name(source, node)
 			if name == wanted then
 				found = node
 				return

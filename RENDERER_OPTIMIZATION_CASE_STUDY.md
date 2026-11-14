@@ -567,3 +567,16 @@ RenderTree 的价值不只是拼接更便宜。它同时解决了：
 - `conceal/init.lua` 负责 buffer/window 生命周期和刷新调度。
 
 必要注释保留在半开区间、稀疏参数槽、VM 空槽哨兵、前向引用的两阶段编译和 atomic 源码归属等约束附近。
+
+
+## 18. 去掉通用字段映射
+
+包装节点不再保存 `_field`、`_index_2_field` 或原始 TSNode 的延迟字段缓存。
+Stream 和 parser 只传节点，所有子节点访问使用 index；语义访问集中在
+`parser/latex_nodes.lua`，同时接受原始和包装节点。命令参数、可选参数、定义、
+条件分支和环境不再依赖 grammar field。旧 renderer 的对照 benchmark 也已迁移，
+其显示策略保留用于性能比较。
+
+LNode 继续提供 TSNode 风格的范围、子节点和 named-child 接口。具体 API 和迁移说明
+见 [中英文 parser 文档](docs/parser.md)。测试会临时禁止原生 `field()` 及带字段名的
+原生 `iter_children()`，验证 parser、renderer 和定义编译链路的字段独立性。

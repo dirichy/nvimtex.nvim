@@ -1,6 +1,8 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 vim.opt.swapfile = false
 
+local latex_nodes = require("nvimtex.parser.latex_nodes")
+
 local uv = vim.uv or vim.loop
 local parser_module = require("nvimtex.parser")
 
@@ -62,7 +64,7 @@ local function node_text(node)
 end
 
 local function command_name(node)
-	local command = node:field("command")[1]
+	local command = latex_nodes.command(node)
 	return command and node_text(command):sub(2) or nil
 end
 
@@ -101,7 +103,7 @@ function interpret_node(node, args)
 			return node_text(node)
 		end
 		local rendered_args = {}
-		for index, arg in ipairs(node:field("arg")) do
+		for index, arg in ipairs(latex_nodes.arguments(node)) do
 			rendered_args[index] = interpret_sequence(content_nodes(arg), args)
 		end
 		return renderer(rendered_args)
@@ -147,7 +149,7 @@ function compile_closure_node(node)
 			end
 		end
 		local compiled_args = {}
-		for index, arg in ipairs(node:field("arg")) do
+		for index, arg in ipairs(latex_nodes.arguments(node)) do
 			compiled_args[index] = compile_closure_sequence(content_nodes(arg))
 		end
 		return function(args)
@@ -187,7 +189,7 @@ function compile_ir_node(node)
 			return { "constant", node_text(node) }
 		end
 		local compiled_args = {}
-		for index, arg in ipairs(node:field("arg")) do
+		for index, arg in ipairs(latex_nodes.arguments(node)) do
 			compiled_args[index] = compile_ir_sequence(content_nodes(arg))
 		end
 		return { "call", renderer, compiled_args }
@@ -248,7 +250,7 @@ function compile_flat_node(node, program)
 			return
 		end
 		local argc = 0
-		for _, arg in ipairs(node:field("arg")) do
+		for _, arg in ipairs(latex_nodes.arguments(node)) do
 			compile_flat_sequence(content_nodes(arg), program)
 			argc = argc + 1
 		end
@@ -306,7 +308,7 @@ end
 
 local implementations = {}
 for index, definition in ipairs(definitions) do
-	implementations[index] = definition:field("implementation")[1]
+	implementations[index] = latex_nodes.definition_body(definition)
 end
 
 local function compile_current()

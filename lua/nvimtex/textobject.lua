@@ -1,6 +1,7 @@
 local parser = require("nvimtex.parser")
 local util = require("nvimtex.conditions.util")
 local LNode = require("nvimtex.parser.lnode")
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 local M = {}
 ---@param lnode Nvimtex.LNode
 ---@return table?
@@ -114,18 +115,19 @@ T.m = function(a_or_i, _, _)
 end
 
 T.a = function(a_or_i, _, _)
-	local all_arg_fields = { "arg", "optional_arg", "name" }
 	local lnode = find_node(function(node)
 		local lnode = util.CMD_NODES[node:type()] and not on_cursor(node:child(0)) and node
 		if not lnode then
 			return
 		end
-		for _, field in ipairs(all_arg_fields) do
-			for _, arg_node in ipairs(lnode:field(field)) do
-				if on_cursor(arg_node) then
-					return arg_node
-				end
+		for _, arg_node in ipairs(latex_nodes.arguments(lnode)) do
+			if on_cursor(arg_node) then
+				return arg_node
 			end
+		end
+		local optional = latex_nodes.optional_argument(lnode)
+		if optional and on_cursor(optional) then
+			return optional
 		end
 	end)
 	if not lnode then

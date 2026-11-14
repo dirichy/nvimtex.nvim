@@ -133,7 +133,7 @@ end
 ---@param session? Nvimtex.RenderSession
 ---@return Nvimtex.RenderContext?
 local function command_context(node, source, spec, session)
-	if spec.narg and #node:field("arg") ~= spec.narg then
+	if spec.narg and #latex_nodes.arguments(node) ~= spec.narg then
 		return nil
 	end
 	local nodes, count = parser.command_arguments(node, spec.optional)
@@ -367,7 +367,7 @@ M.register_command("sqrt", {
 ---@param session? Nvimtex.RenderSession
 ---@return Nvimtex.RenderTree
 local function render_script(node, source, spec, session)
-	local argument = node:named_child(0)
+	local argument = latex_nodes.script_argument(node)
 	if not argument then
 		return node_tree(node, source, Render.mode.reveal)
 	end
@@ -432,7 +432,7 @@ end
 function render_node(node, source, session)
 	local node_type = node:type()
 	if node_type == "if_statement" then
-		local block = node:field("if_block")[1]
+		local block = latex_nodes.branch(node)
 		return block and M.render_fallback(block, source, session) or Render.empty()
 	elseif node_type == "generic_command" then
 		local name = latex_nodes.command_name(source, node)

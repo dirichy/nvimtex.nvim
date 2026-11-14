@@ -35,28 +35,27 @@ function M:node_text(node)
 	return vim.treesitter.get_node_text(node, self.source)
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:next_raw()
 	return self.stream:next()
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:peek_raw()
 	return self.stream:peek()
 end
 
 ---@param node Nvimtex.LNode
----@param field string?
-function M:push_front(node, field)
-	self.stream:push_front(node, field)
+function M:push_front(node)
+	self.stream:push_front(node)
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:next_atom()
 	return self.parsers.parse_atom(self.stream, self.source)
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:next_node()
 	return self.parsers.parse_next(self.stream, self.source)
 end
@@ -95,25 +94,24 @@ local argument_boundaries = {
 	["end"] = true,
 }
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:read_char()
-	local node, field = self:next_raw()
+	local node = self:next_raw()
 	if not node then
 		return nil
 	end
 	local head, tail = self:split_first_char(node, "char")
 	if tail then
-		self:push_front(tail, field)
+		self:push_front(tail)
 	end
-	return head, field
+	return head
 end
 
 ---@param open_type string
 ---@param close_type string
 ---@param result_type string
----@param result_field string
----@return Nvimtex.LNode?, string?
-function M:read_group(open_type, close_type, result_type, result_field)
+---@return Nvimtex.LNode?
+function M:read_group(open_type, close_type, result_type)
 	local open = self:next_raw()
 	if not open or open:type() ~= open_type then
 		if open then
@@ -129,46 +127,46 @@ function M:read_group(open_type, close_type, result_type, result_field)
 	while true do
 		local next_node = self:peek_raw()
 		if next_node and next_node:type() == close_type then
-			local close = self:next_raw()
-			group:add_child(close)
-			group:set_end(close)
-			return group, result_field
+			self:next_raw()
+			group:add_child(next_node)
+			group:set_end(next_node)
+			return group
 		end
 		if next_node and argument_boundaries[next_node:type()] then
 			group:set_end()
-			return group, result_field
+			return group
 		end
 
-		local node, field = self:next_node()
+		local node = self:next_node()
 		if not node then
 			group:set_end()
-			return group, result_field
+			return group
 		end
 
-		group:add_child(node, field)
+		group:add_child(node)
 	end
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:read_argument()
-	local node, field = self:next_raw()
+	local node = self:next_raw()
 	if not node then
 		return nil
 	end
 	if argument_boundaries[node:type()] then
-		self:push_front(node, field)
+		self:push_front(node)
 		return nil
 	end
 
 	if node:type() == "word" then
 		local head, tail = self:split_first_char(node)
 		if tail then
-			self:push_front(tail, field)
+			self:push_front(tail)
 		end
-		return head, field
+		return head
 	end
 
-	return node, field
+	return node
 end
 
 ---@param delimiter string
@@ -179,7 +177,7 @@ function M:read_until_char(delimiter)
 	local last_node
 
 	while true do
-		local node, field = self:next_raw()
+		local node = self:next_raw()
 		if not node then
 			if start_range then
 				local end_row, end_col, end_byte = last_node:end_()
@@ -198,7 +196,7 @@ function M:read_until_char(delimiter)
 			local close = self:slice_node(node, index - 1, index, "char")
 			content:set_range(start_range[1], start_range[2], start_range[3], close:start())
 			if index < #text then
-				self:push_front(self:slice_node(node, index, #text), field)
+				self:push_front(self:slice_node(node, index, #text))
 			end
 			return content, close
 		end

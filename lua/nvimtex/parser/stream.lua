@@ -4,8 +4,8 @@ local M = {}
 M.__index = M
 
 ---@class Nvimtex.Parser.Stream
----@field stack (fun():Nvimtex.LNode?,string?)[]
----@field pushed Nvimtex.LNode.withfield[]
+---@field stack (fun():Nvimtex.LNode?)[]
+---@field pushed Nvimtex.LNode[]
 ---@field fold_scripts boolean
 ---@field opts Nvimtex.Parser.StreamOptions
 
@@ -17,44 +17,28 @@ M.__index = M
 
 ---@param root Nvimtex.LNode
 ---@param opts Nvimtex.Parser.StreamOptions
----@return fun(): Nvimtex.LNode?, string?
+---@return fun(): Nvimtex.LNode?
 local function child_iterator(root, opts)
-	-- Small child lists are cheaper to scan and retain field names from the
-	-- native iterator. Large lists seek by their ordered source end positions.
-	local iter = root:iter_children()
 	local child_count = root:child_count()
-	if not opts.start_row or child_count < (opts.binary_threshold or 16) then
-		return iter
-	end
-
-	local left, right = 0, child_count
-	-- Find the first child whose end is after the requested start row.
-	while left < right do
-		local middle = math.floor((left + right) / 2)
-		local child = root:child(middle)
-		local end_row, end_col = child:end_()
-		if end_row < opts.start_row or (end_row == opts.start_row and end_col == 0) then
-			left = middle + 1
-		else
-			right = middle
-		end
-	end
-
-	local index = math.max(left - (opts.lookbehind or 2), 0)
-	if index == 0 then
-		-- Keep the native iterator when starting from zero so callers still
-		-- receive grammar field names alongside nodes.
-		return function()
-			local child, field = iter()
-			if child and opts.end_row and child:start() > opts.end_row then
-				return nil
+	local index = 0
+	if opts.start_row and child_count >= (opts.binary_threshold or 16) then
+		local left, right = 0, child_count
+		-- Seek by ordered source ends, retaining a little context for commands
+		-- and scripts whose tokens may straddle the viewport boundary.
+		while left < right do
+			local middle = math.floor((left + right) / 2)
+			local child = root:child(middle)
+			local end_row, end_col = child:end_()
+			if end_row < opts.start_row or (end_row == opts.start_row and end_col == 0) then
+				left = middle + 1
+			else
+				right = middle
 			end
-			return child, field
 		end
+		index = math.max(left - (opts.lookbehind or 2), 0)
 	end
+	-- Indexed access avoids querying grammar field names, even for small lists.
 	return function()
-		-- Indexed iteration cannot expose grammar field names, so the second
-		-- return value is intentionally nil on this fast path.
 		if index >= child_count then
 			return nil
 		end
@@ -81,26 +65,25 @@ function M:new(root, opts)
 end
 
 ---@param node Nvimtex.LNode
----@param field string?
-function M:push_front(node, field)
-	table.insert(self.pushed, { node, field })
+function M:push_front(node)
+	self.pushed[#self.pushed + 1] = node
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:next()
 	local pushed = table.remove(self.pushed)
 	if pushed then
-		return pushed[1], pushed[2]
+		return pushed
 	end
 
 	while #self.stack > 0 do
 		local iter = self.stack[#self.stack]
-		local node, field = iter()
+		local node = iter()
 		if node then
 			if node:type() == "text" then
 				table.insert(self.stack, child_iterator(node, self.opts))
 			else
-				return node, field
+				return node
 			end
 		else
 			table.remove(self.stack)
@@ -108,13 +91,13 @@ function M:next()
 	end
 end
 
----@return Nvimtex.LNode?, string?
+---@return Nvimtex.LNode?
 function M:peek()
-	local node, field = self:next()
+	local node = self:next()
 	if node then
-		self:push_front(node, field)
+		self:push_front(node)
 	end
-	return node, field
+	return node
 end
 
 ---@param node Nvimtex.LNode
@@ -122,8 +105,11 @@ end
 local function clone_node(node)
 	local result = LNode:new(node:type())
 	result:set_range(node)
-	for child, field in node:iter_children() do
-		result:add_child(child, field)
+	for index = 0, node:child_count() - 1 do
+		local child = node:child(index)
+		if child then
+			result:add_child(child)
+		end
 	end
 	return result
 end

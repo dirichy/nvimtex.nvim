@@ -1,4 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 
 local renderer = require("nvimtex.conceal.renderer")
 local parser = require("nvimtex.parser")
@@ -29,17 +30,12 @@ local function find_math(node, source)
 	end
 end
 
-local function command_name(node, source)
-	local command = node:field("command")[1]
-	return command and vim.treesitter.get_node_text(command, source):sub(2) or nil
-end
-
 -- Reproduce the old processor ownership rule: render a recognized command or
 -- script and stop descending into that node; otherwise continue traversal.
 local function old_targets(node, source, result)
 	local node_type = node:type()
 	if node_type == "generic_command" then
-		local name = command_name(node, source)
+		local name = latex_nodes.command_name(source, node)
 		if renderer.command_specs[name] or symbols[name] then
 			result[#result + 1] = node
 			return

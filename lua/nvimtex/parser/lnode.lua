@@ -1,23 +1,15 @@
 ---@alias Nvimtex.LNode Nvimtex._LNode|TSNode
 ---@class Nvimtex._LNode
 ---@field _range Range6
----@field _field table <string,Nvimtex.LNode[]>
 ---@field _childrens Nvimtex.LNode[]
 ---@field _type string
+---@field _named boolean
 local _LNode = {
-	_field = {},
-	_index_2_field = {},
 	_childrens = {},
 	_type = "",
 }
 _LNode.__index = _LNode
 
---- Returns a list of all the node's children that have the given field name.
---- @param name string
---- @return Nvimtex.LNode[]
-function _LNode:field(name)
-	return self._field[name] or {}
-end
 --- return type
 ---@return string
 function _LNode:type()
@@ -74,14 +66,13 @@ end
 
 -- Iterates over all the direct children of {_LNode}, regardless of whether
 -- they are named or not.
--- Returns the child node plus the eventual field name corresponding to this
--- child node.
---- @return fun(): Nvimtex.LNode?,string?
+-- Each iterator result contains only the child node.
+--- @return fun(): Nvimtex.LNode?
 function _LNode:iter_children()
 	local index = 0
 	return function()
 		index = index + 1
-		return self._childrens[index], self._index_2_field[index]
+		return self._childrens[index]
 	end
 end
 
@@ -100,6 +91,36 @@ function _LNode:child(index)
 		return self._childrens[index + 1]
 	else
 		return self._childrens[#self._childrens + 1 + index]
+	end
+end
+
+---Whether this is a named grammar node. Synthetic parser nodes are named.
+---@return boolean
+function _LNode:named()
+	return self._named
+end
+
+---@return integer
+function _LNode:named_child_count()
+	local count = 0
+	for _, child in ipairs(self._childrens) do
+		if child:named() then
+			count = count + 1
+		end
+	end
+	return count
+end
+
+---@param index integer zero-based named child index
+---@return Nvimtex.LNode?
+function _LNode:named_child(index)
+	for _, child in ipairs(self._childrens) do
+		if child:named() then
+			if index == 0 then
+				return child
+			end
+			index = index - 1
+		end
 	end
 end
 
@@ -123,10 +144,6 @@ function _LNode:tostring(indent)
 	return str
 end
 
--- --- Get the node's number of named children.
--- --- @return integer
--- function _LNode:named_child_count() end
---
 -- --- Returns a list of the node's named children.
 -- --- @return _LNode[]
 -- function _LNode:named_children() end
@@ -135,12 +152,6 @@ end
 -- --- @param node_types string[]
 -- --- @return boolean
 -- function _LNode:__has_ancestor(node_types) end
-
---- Get the node's named child at the given {index}, where zero represents the
---- first named child.
--- --- @param index integer
--- --- @return _LNode?
--- function _LNode:named_child(index) end
 
 --- Get the node's child that contains {descendant} (includes {descendant}).
 ---
@@ -273,40 +284,31 @@ end
 
 ---@param node_type string|Nvimtex.LNode?
 ---@return Nvimtex._LNode
-function _LNode:new(node_type, opt)
-	if type(node_type) == "userdata" then
-		local lnode = setmetatable(
-			{ _type = node_type:type(), _childrens = {}, _field = {}, _range = {}, _index_2_field = {} },
-			_LNode
-		)
-		lnode:set_range(node_type)
-		for node, field in node_type:iter_children() do
-			lnode:add_child(node, field)
-		end
-		return lnode
-	end
+function _LNode:new(node_type)
 	if type(node_type) == "table" then
 		return node_type
 	end
-	return setmetatable(
-		{ _type = node_type or "", _childrens = {}, _field = {}, _range = {}, _index_2_field = {} },
-		_LNode
-	)
+	local result = setmetatable({ _type = "", _named = true, _childrens = {}, _range = {} }, _LNode)
+	if type(node_type) == "userdata" then
+		result._type = node_type:type()
+		result._named = node_type:named()
+		result:set_range(node_type)
+		for index = 0, node_type:child_count() - 1 do
+			result._childrens[index + 1] = node_type:child(index)
+		end
+	elseif type(node_type) == "string" then
+		result._type = node_type
+	end
+	return result
 end
 
-function _LNode:add_child(child, field, index)
-	-- child = _LNode:new(child)
+---@param child Nvimtex.LNode
+---@param index? integer one-based insertion position, defaults to append
+function _LNode:add_child(child, index)
 	if index then
 		table.insert(self._childrens, index, child)
 	else
-		table.insert(self._childrens, child)
-		index = #self._childrens
-	end
-	-- child._parent = self
-	if field then
-		self._field[field] = self._field[field] or {}
-		self._index_2_field[index] = field
-		table.insert(self._field[field], child)
+		self._childrens[#self._childrens + 1] = child
 	end
 end
 

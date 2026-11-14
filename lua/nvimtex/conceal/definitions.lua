@@ -14,13 +14,11 @@ local M = {}
 ---@param node Nvimtex.LNode
 ---@param source integer buffer id
 local function register_definition(node, source)
-	local declaration = node:field("declaration")[1]
-	local command = declaration and declaration:field("command")[1]
-	local implementation = node:field("implementation")[1]
+	local declaration, argc_node, default, implementation = latex_nodes.definition_parts(node)
+	local command = latex_nodes.command(declaration)
 	if not command or not implementation then
 		return
 	end
-	local argc_node = node:field("argc")[1]
 	local argc = 0
 	if argc_node then
 		argc = tonumber(vim.treesitter.get_node_text(argc_node, source):sub(2, -2))
@@ -28,7 +26,6 @@ local function register_definition(node, source)
 	if not argc or argc % 1 ~= 0 or argc < 0 or argc > 9 then
 		return
 	end
-	local default = node:field("default")[1]
 	local required_count = argc - (default and 1 or 0)
 	if required_count < 0 then
 		return

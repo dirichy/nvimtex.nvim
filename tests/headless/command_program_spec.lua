@@ -1,4 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
+local latex_nodes = require("nvimtex.parser.latex_nodes")
 
 local function eq(actual, expected, label)
 	if not vim.deep_equal(actual, expected) then
@@ -24,7 +25,7 @@ local function find(node)
 	end
 end
 find(root)
-local implementation = assert(definition, "newcommand definition parsed"):field("implementation")[1]
+local implementation = assert(latex_nodes.definition_body(assert(definition, "newcommand definition parsed")))
 
 local specs = {
 	mathbb = Command.transform(mathstyle.mathbb, "Special"),
