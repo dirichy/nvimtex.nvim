@@ -9,6 +9,7 @@ M._defaults = {
 	compile = {},
 	conceal = {},
 	input = {},
+	textobject = {},
 }
 
 function M.setup(opts)
@@ -17,7 +18,7 @@ function M.setup(opts)
 	require("nvimtex.compile").setup(opts.compile)
 	require("nvimtex.view").setup(opts.view)
 	require("nvimtex.conceal").setup(opts.conceal)
-	require("nvimtex.textobject").setup_buf()
+	require("nvimtex.textobject").setup(opts.textobject)
 	if opts.input ~= false then
 		require("nvimtex.snip.input").setup(opts.input)
 	end

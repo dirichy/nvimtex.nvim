@@ -141,8 +141,15 @@ end
 
 ---@param node Nvimtex.LNode
 ---@return Nvimtex.LNode?
+function M.environment_end(node)
+	return node:type() == "end" and node or M.find_child(node, "end")
+end
+
+---@param node Nvimtex.LNode
+---@return Nvimtex.LNode?
 function M.environment_name_node(node)
-	return M.find_child(M.environment_begin(node), "curly_group_text")
+	local marker = node:type() == "end" and node or M.environment_begin(node)
+	return M.find_child(marker, "curly_group_text")
 end
 
 ---@param source number|string

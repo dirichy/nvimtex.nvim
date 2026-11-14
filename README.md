@@ -54,6 +54,69 @@ require("nvimtex").setup({
 })
 ```
 
+## textobjects
+
+Use `mini.ai` (the default) or Pairwise for LaTeX textobjects. Initialize your
+chosen plugin, then configure nvimtex at startup:
+
+```lua
+require("mini.ai").setup()
+require("nvimtex").setup()
+```
+
+For Pairwise instead:
+
+```lua
+require("pairwise").setup()
+require("nvimtex").setup({ textobject = { integration = "pairwise" } })
+```
+
+| Object | Inside (`i`) | Around (`a`) |
+| --- | --- | --- |
+| `c` | Command name, excluding `\` | Command and all arguments |
+| `a` | Argument contents | Argument with delimiters |
+| `m` | Math contents | Math with delimiters |
+| `e` | Environment body | Complete environment |
+| `g` | Group contents | Group with `{…}` or `[…]` |
+| `S` | Current sub/superscript contents | Current suffix, e.g. `_{ij}` |
+| `N` | Environment name | Its `{name}` group |
+
+For example, `cia` changes an argument, `dim` deletes math contents, and `d2aa`
+deletes the second enclosing argument. Visual selections can expand outward.
+This version only finds enclosing objects; MiniAi's `search_method` and
+`n_lines` do not enable nearby-object searches.
+
+With Pairwise, `dsc` removes a single-argument command wrapper; `cscc` prompts
+for a replacement command name, and `ysiwc` wraps a word in a command.
+For `\sqrt[3]{x}`, the opening is `\sqrt[3]{` and the closing is `}`.
+For commands with any number of arguments, `cic` edits the name and preserves
+arguments. Command surround supports complete braced single-argument wrappers;
+`ia/aa` select individual arguments. Bare arguments are not command pairs.
+Pairwise also supports `dsm` / `dse` / `dsg` to remove math, environment, and
+group delimiters. `csee` prompts for an environment name and changes both ends;
+`ysiwm`, `ysiwe`, and `ysiwg` add `$…$`, a prompted environment, or `{…}`.
+`iN` selects one environment name (the closing name when queried at `\end`,
+otherwise the opening name); use `csee` to rename both ends together.
+Uppercase `S` and `N` preserve sentence objects and MiniAi's `in/an` prefixes.
+The Pairwise integration requires its `textobject.find` / `surround.find` API
+and uses nvimtex parsing independently of Pairwise language presets.
+
+Objects are enabled in `tex`, `plaintex`, `latex`, `markdown`, `rmd`, and `quarto`
+buffers. Install the `latex` Tree-sitter parser; Markdown also needs `markdown`
+and `markdown_inline`. Set `textobject = false` to disable automatic integration.
+See the bilingual [textobject API notes](docs/textobjects.md) for custom mappings
+and implementation details.
+
+中文：默认接入 mini.ai，也可选择 Pairwise；`c/a/m/e` 分别表示命令、参数、数学和环境，
+配合 `i/a` 选择内部或整体。支持计数和可视选区向外扩展；第一版只查找包围当前位置
+的对象，不支持向附近搜索。`ic` 选择命令名（不含反斜杠），`ac` 选择命令及所有参数。
+Pairwise 的 `dsc/cscc/ysiwc` 处理单参数包装；`cic` 可直接改名并保留全部参数。
+新增 `ig/ag` 分组、`iS/aS` 当前上下标、`iN/aN` 环境名；大写按键保留句子对象及
+mini.ai 的 `in/an` 前缀。Pairwise 的 `dsm/dse/dsg` 可删除对应边界，
+`csee` 输入新环境名可同时改两端；`iN` 只选择当前一端的名字。
+接入需要 Pairwise 的 `textobject.find` / `surround.find` API，解析由 nvimtex 负责。
+配置和自定义映射见[中英文说明](docs/textobjects.md)。
+
 ## compiling
 1. support smartly guess compiler for the `tex` file by
 ```lua
