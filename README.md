@@ -74,12 +74,13 @@ require("nvimtex").setup({ textobject = { integration = "pairwise" } })
 | Object | Inside (`i`) | Around (`a`) |
 | --- | --- | --- |
 | `c` | Command name, excluding `\` | Command and all arguments |
-| `a` | Argument contents | Argument with delimiters |
+| `a` | Contents of a complete `{…}` or `[…]` group | Group with delimiters |
 | `m` | Math contents | Math with delimiters |
 | `e` | Environment body | Complete environment |
-| `g` | Group contents | Group with `{…}` or `[…]` |
-| `S` | Current sub/superscript contents | Current suffix, e.g. `_{ij}` |
-| `N` | Environment name | Its `{name}` group |
+| `u` | Current sub/superscript contents | Current suffix, e.g. `_{ij}` |
+| `S` | Section body, including subsections | Heading and complete section |
+| `i` | Item body | Complete `\item` entry, including label |
+| `d` | Delimited contents | Complete delimiters, including sizing commands |
 
 For example, `cia` changes an argument, `dim` deletes math contents, and `d2aa`
 deletes the second enclosing argument. Visual selections can expand outward.
@@ -95,11 +96,22 @@ arguments. Command surround supports complete braced single-argument wrappers;
 Pairwise also supports `dsm` / `dse` / `dsg` to remove math, environment, and
 group delimiters. `csee` prompts for an environment name and changes both ends;
 `ysiwm`, `ysiwe`, and `ysiwg` add `$…$`, a prompted environment, or `{…}`.
-`iN` selects one environment name (the closing name when queried at `\end`,
-otherwise the opening name); use `csee` to rename both ends together.
-Uppercase `S` and `N` preserve sentence objects and MiniAi's `in/an` prefixes.
+`ia/aa` only select complete parsed `{…}` or `[…]` groups, including environment
+names, braced script arguments, and standalone groups. For `x_{ij}`, `ia/aa`
+select `ij`/`{ij}` while `au` selects `_{ij}`. Bare arguments such as `x_i` or
+`\sqrt x` are excluded from `ia/aa`; use `iu/au` for bare scripts. Environment name
+selection requires the cursor at that name and edits one end; use `csee` to
+rename both ends together. `iS/aS` select sections; `is/as` retain native sentence behavior.
 The Pairwise integration requires its `textobject.find` / `surround.find` API
 and uses nvimtex parsing independently of Pairwise language presets.
+
+Use `iu/au` for scripts, `iS/aS` for sections, `ii/ai` for list items, and `id/ad`
+for delimiters such as `\left(…\right)`, `\bigl[…\bigr]`, and `\langle…\rangle`.
+Section/item inside excludes the heading or `\item[label]` and surrounding
+whitespace; around includes indentation and separators up to the next sibling
+or enclosing boundary. Counts expand to enclosing sections/items. Plain `|`
+and `\vert` are not paired automatically because they can denote relations.
+Pairwise also supports `dsd` to remove delimiters and `ysiwd` to add `\left(…\right)`.
 
 Objects are enabled in `tex`, `plaintex`, `latex`, `markdown`, `rmd`, and `quarto`
 buffers. Install the `latex` Tree-sitter parser; Markdown also needs `markdown`
@@ -111,9 +123,12 @@ and implementation details.
 配合 `i/a` 选择内部或整体。支持计数和可视选区向外扩展；第一版只查找包围当前位置
 的对象，不支持向附近搜索。`ic` 选择命令名（不含反斜杠），`ac` 选择命令及所有参数。
 Pairwise 的 `dsc/cscc/ysiwc` 处理单参数包装；`cic` 可直接改名并保留全部参数。
-新增 `ig/ag` 分组、`iS/aS` 当前上下标、`iN/aN` 环境名；大写按键保留句子对象及
-mini.ai 的 `in/an` 前缀。Pairwise 的 `dsm/dse/dsg` 可删除对应边界，
-`csee` 输入新环境名可同时改两端；`iN` 只选择当前一端的名字。
+`iu/au` 选择上下标，`iS/aS` 选择章节，`ii/ai` 选择列表项，`id/ad` 选择定界符；
+保留原生 `is/as` 句子对象及现有 `im/am` 数学区域对象。
+`ia/aa` 只识别完整的花括号或方括号分组，包括环境名、带括号的上下标和独立分组。
+不选择 `x_i`、`\sqrt x` 等裸参数；裸上下标仍可用 `iu/au`，`au` 包含 `_` 或 `^`。
+环境名需要光标位于名字处，且只编辑一端；
+用 `csee` 同时改两端。Pairwise 的 `dsm/dse/dsg` 可删除对应边界，`g` 仅用于 surround。
 接入需要 Pairwise 的 `textobject.find` / `surround.find` API，解析由 nvimtex 负责。
 配置和自定义映射见[中英文说明](docs/textobjects.md)。
 

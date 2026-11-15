@@ -52,7 +52,8 @@ local function add_environment()
 	return { "\\begin{" .. name .. "}", "\\end{" .. name .. "}" }
 end
 
-local additions = { c = add_command, m = { "$", "$" }, e = add_environment, g = { "{", "}" } }
+local additions =
+	{ c = add_command, m = { "$", "$" }, e = add_environment, g = { "{", "}" }, d = { "\\left(", "\\right)" } }
 ---@type table<Nvimtex.Textobject.Id,Pairwise.PairFinder>
 M.pairs = {}
 for id in pairs(additions) do
@@ -73,13 +74,15 @@ function M.setup_buf(bufnr)
 	if not ok then
 		return false
 	end
-	for _, id in ipairs(core.ids) do
+	-- g remains a surround selector; groups use the shared argument textobject.
+	local ids = vim.list_extend(vim.list_slice(core.ids), { "g" })
+	for _, id in ipairs(ids) do
 		api.register({
 			id = "nvimtex." .. id,
 			key = id,
 			buffer = bufnr,
 			override = true,
-			textobject = { find = M.objects[id] },
+			textobject = M.objects[id] and { find = M.objects[id] } or false,
 			surround = M.pairs[id] and { find = M.pairs[id] } or false,
 			add = additions[id],
 			autopair = false,

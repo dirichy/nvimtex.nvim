@@ -2,9 +2,14 @@ local parser = require("nvimtex.parser")
 local nodes = require("nvimtex.parser.latex_nodes")
 local syntax = require("nvimtex.conditions.util")
 
+local ranges = require("nvimtex.textobject.ranges")
+local structure = require("nvimtex.textobject.structure")
+local delimiters = require("nvimtex.textobject.delimiters")
+local before, equal, contains = ranges.before, ranges.equal, ranges.contains
+local range, interior, boundaries = ranges.of, ranges.interior, ranges.boundaries
 local M = {}
 
----@alias Nvimtex.Textobject.Id "c"|"a"|"m"|"e"|"g"|"S"|"N"
+---@alias Nvimtex.Textobject.Id "c"|"a"|"m"|"e"|"g"|"u"|"S"|"i"|"d"
 ---@class Nvimtex.Textobject.Context
 ---@field bufnr integer
 ---@field reference Range4 Zero-based byte coordinates, end-exclusive; equal endpoints mean a cursor point.
@@ -14,105 +19,14 @@ local M = {}
 ---@alias Nvimtex.Textobject.Pair {outer_start:Nvimtex.Textobject.Point, inner_start:Nvimtex.Textobject.Point, inner_end:Nvimtex.Textobject.Point, outer_end:Nvimtex.Textobject.Point}
 
 ---@type Nvimtex.Textobject.Id[]
-M.ids = { "c", "a", "m", "e", "g", "S", "N" }
+M.ids = { "c", "a", "m", "e", "u", "S", "i", "d" }
 local latex_filetypes = { tex = true, plaintex = true, latex = true }
 local node_types = {
 	c = syntax.CMD_NODES,
 	m = syntax.MATH_NODES,
 	e = syntax.ENV_NODES,
-	S = { subscript = true, superscript = true },
-	N = syntax.ENV_NODES,
+	u = { subscript = true, superscript = true },
 }
-
-local function before(ar, ac, br, bc)
-	return ar < br or ar == br and ac < bc
-end
-
-local function equal(a, b)
-	return a[1] == b[1] and a[2] == b[2] and a[3] == b[3] and a[4] == b[4]
-end
-
----@param outer Range4
----@param reference Range4
----@return boolean
-local function contains(outer, reference)
-	if before(reference[1], reference[2], outer[1], outer[2]) then
-		return false
-	end
-	if reference[1] == reference[3] and reference[2] == reference[4] then
-		return before(reference[1], reference[2], outer[3], outer[4])
-	end
-	return not before(outer[3], outer[4], reference[3], reference[4])
-end
-
----@param node Nvimtex.LNode
----@return Range4
-local function range(node)
-	return { node:range() }
-end
-
----Use actual syntax boundaries, preserving newlines and UTF-8 byte offsets.
----An absent/missing closing token cannot define a safe inside selection.
----@param node Nvimtex.LNode
----@return Range4?
-local function interior(node)
-	local opening, closing = node:child(0), node:child(node:child_count() - 1)
-	if not opening or not closing or opening == closing then
-		return nil
-	end
-	if type(closing) == "userdata" and closing:missing() then
-		return nil
-	end
-	local open_type, close_type = nodes.group_delimiters(node)
-	if open_type and (opening:type() ~= open_type or closing:type() ~= close_type) then
-		return nil
-	end
-	local row, col = opening:end_()
-	local end_row, end_col = closing:start()
-	if before(end_row, end_col, row, col) then
-		return nil
-	end
-	return { row, col, end_row, end_col }
-end
-
----@param outer Range4
----@param inside Range4
----@return Nvimtex.Textobject.Pair
-local function boundaries(outer, inside)
-	return {
-		outer_start = { outer[1], outer[2] },
-		inner_start = { inside[1], inside[2] },
-		inner_end = { inside[3], inside[4] },
-		outer_end = { outer[3], outer[4] },
-	}
-end
-
----@param node Nvimtex.LNode
----@param ctx Nvimtex.Textobject.Context
----@return Nvimtex.Textobject.Pair?
-local function argument_bounds(node, ctx)
-	if not syntax.CMD_NODES[node:type()] then
-		return nil
-	end
-	local arguments = nodes.arguments(node)
-	local optional = nodes.optional_argument(node)
-	if optional then
-		arguments[#arguments + 1] = optional
-	end
-	for _, argument in ipairs(arguments) do
-		local outer = range(argument)
-		if contains(outer, ctx.reference) then
-			---@type Range4?
-			local inside = outer
-			if nodes.group_delimiters(argument) then
-				inside = interior(argument)
-			end
-			if inside then
-				return boundaries(outer, inside)
-			end
-		end
-	end
-end
 
 ---Only a complete, braced single-argument command is a two-ended wrapper.
 ---Optional arguments belong to the opening; environment markers are not wrappers.
@@ -145,22 +59,13 @@ end
 ---@param ctx Nvimtex.Textobject.Context
 ---@return Nvimtex.Textobject.Pair?
 local function object_bounds(node, id, ctx)
-	if id == "a" then
-		return argument_bounds(node, ctx)
-	end
-	if id == "g" then
+	-- Argument selection depends on the group's structure, not its parent's type.
+	if id == "a" or id == "g" then
 		if not nodes.group_delimiters(node) then
 			return nil
 		end
 	elseif not node_types[id][node:type()] then
 		return nil
-	end
-	if id == "N" then
-		local closing = nodes.environment_end(node)
-		local marker = closing and contains(range(closing), ctx.reference) and closing or nodes.environment_begin(node)
-		local name = marker and nodes.environment_name_node(marker)
-		local inside = name and interior(name)
-		return name and inside and boundaries(range(name), inside) or nil
 	end
 	local outer = range(node)
 	if id == "c" then
@@ -173,7 +78,7 @@ local function object_bounds(node, id, ctx)
 		name[2] = name[2] + 1
 		return boundaries(outer, name)
 	end
-	if id == "S" then
+	if id == "u" then
 		local argument = nodes.script_argument(node)
 		if not argument then
 			return nil
@@ -189,7 +94,7 @@ local function object_bounds(node, id, ctx)
 	if inside then
 		return boundaries(outer, inside)
 	end
-	if not ctx.inner then
+	if not ctx.inner and id ~= "a" and id ~= "g" then
 		return boundaries(outer, outer)
 	end
 end
@@ -254,7 +159,10 @@ end
 ---@param record? fun(pair:Nvimtex.Textobject.Pair)
 ---@return Nvimtex.Textobject.Pair?
 local function find(id, ctx, pair_only, record)
-	assert(id == "a" or id == "g" or node_types[id], "unknown LaTeX textobject: " .. tostring(id))
+	assert(
+		id == "a" or id == "g" or id == "d" or structure.types[id] or node_types[id],
+		"unknown LaTeX textobject: " .. tostring(id)
+	)
 	local count = ctx.count or 1
 	assert(count >= 1 and count % 1 == 0, "textobject count must be a positive integer")
 	if not vim.api.nvim_buf_is_loaded(ctx.bufnr) then
@@ -268,24 +176,36 @@ local function find(id, ctx, pair_only, record)
 	end
 	local seen = {}
 	for _, root in ipairs(roots(ctx)) do
-		local ancestors =
-			parser.descendants_node_covering_range(root, ctx.bufnr, reference[1], reference[2], end_row, end_col)
-		for index = #ancestors, 1, -1 do
-			local node = ancestors[index]
-			local pair
-			if pair_only then
-				pair = surround_bounds(node, id, ctx)
-			else
-				pair = object_bounds(node, id, ctx)
+		local candidates = {}
+		if (id == "S" or id == "i") and not pair_only then
+			candidates = structure.candidates(root, ctx, id)
+		else
+			local ancestors =
+				parser.descendants_node_covering_range(root, ctx.bufnr, reference[1], reference[2], end_row, end_col)
+			for index = #ancestors, 1, -1 do
+				local node = ancestors[index]
+				if id == "d" then
+					vim.list_extend(candidates, delimiters.candidates(node, ctx))
+				else
+					local pair = pair_only and surround_bounds(node, id, ctx) or nil
+					if not pair_only then
+						pair = object_bounds(node, id, ctx)
+					end
+					if pair then
+						candidates[#candidates + 1] = pair
+					end
+				end
 			end
-			local first = pair and (ctx.inner and pair.inner_start or pair.outer_start)
-			local last = pair and (ctx.inner and pair.inner_end or pair.outer_end)
-			local candidate = first and last and { first[1], first[2], last[1], last[2] }
-			if candidate and (point or contains(candidate, reference) and not equal(candidate, reference)) then
+		end
+		for _, pair in ipairs(candidates) do
+			local first = ctx.inner and pair.inner_start or pair.outer_start
+			local last = ctx.inner and pair.inner_end or pair.outer_end
+			local candidate = { first[1], first[2], last[1], last[2] }
+			if point or contains(candidate, reference) and not equal(candidate, reference) then
 				local key = table.concat(candidate, ":")
 				if not seen[key] then
 					seen[key] = true
-					if pair and record then
+					if record then
 						record(pair)
 					end
 					count = count - 1

@@ -62,6 +62,11 @@ local wrapper = assert(registry.by_key(ctx, "c", "surround"))
 eq(selected.find, pairwise_adapter.objects.c, "textobject finder is registered through the API")
 eq(wrapper.find, pairwise_adapter.pairs.c, "surround finder is independent")
 
+eq(mini_adapter.objects.g, nil, "no separate group textobject")
+eq(rawget(mini_adapter.objects, "N"), nil, "no separate environment-name textobject")
+eq(registry.by_key(ctx, "g", "textobject"), nil, "g does not provide a Pairwise textobject")
+assert(registry.by_key(ctx, "g", "surround"), "group surround remains available")
+
 vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { [[\frac{αβ}{c}]] })
 opts.reference_region = { from = { line = 1, col = 7 } }
 local unicode = assert(mini.find_textobject("i", "a", opts))

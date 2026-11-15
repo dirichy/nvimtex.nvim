@@ -37,33 +37,83 @@ Pairwise 注册。
 | Object / 对象 | Inside / 内部 | Around / 整体 |
 | --- | --- | --- |
 | `c` | Command name without `\` / 命令名，不含反斜杠 | Command and all arguments / 命令及全部参数 |
-| `a` | Argument contents / 参数内容 | Argument with delimiters / 参数及定界符 |
+| `a` | Complete group contents / 完整分组内容 | Group with delimiters / 分组及定界符 |
 | `m` | Math contents / 数学内容 | Math with delimiters / 数学及定界符 |
 | `e` | Environment body / 环境正文 | Complete environment / 完整环境 |
-| `g` | Group contents / 分组内容 | `{…}` or `[…]` group / 含定界符的分组 |
-| `S` | Current sub/superscript contents / 当前上下标内容 | Suffix with marker / 含标记的后缀 |
-| `N` | Environment name / 环境名 | Its `{name}` group / 环境名分组 |
+| `u` | Current sub/superscript contents / 当前上下标内容 | Suffix with marker / 含标记的后缀 |
+| `S` | Section body / 章节正文 | Heading and complete section / 标题及完整章节 |
+| `i` | List item body / 列表项正文 | Complete item with label / 含标签的完整条目 |
+| `d` | Delimited contents / 定界符内容 | Complete delimiters / 完整定界符 |
 
 `cic` changes a command's name while preserving all arguments, including optional
 ones. It works for single-argument, multi-argument, and argument-free commands.
-`ia/aa` select the argument containing the reference, including optional or bare
-arguments. `ig/ag` work for any parsed curly/bracket group, including standalone
-and script groups. For `x_{ij}^2`, `iS/aS` select `ij`/`_{ij}` in the subscript,
-or `2`/`^2` in the superscript; the base is excluded. `iN/aN` select the opening
-environment name and its group from the body, or the closing name/group at
-`\end`. Editing `iN` affects one end only. Uppercase IDs avoid replacing sentence
-objects and MiniAi's next-object prefixes. Empty interiors are valid. Counts select enclosing layers; nonempty
-references require a strictly larger containing selection. No match returns nil.
-A single-character Visual reference starts a cursor query in both adapters.
+`ia/aa` only select complete parsed curly or bracket groups. This includes
+braced required/optional command arguments, environment names in begin/end
+markers, braced script arguments, standalone groups, and named grammar groups
+such as label and section arguments. Selection depends on the group structure,
+not an enumeration of parent node types. Environment names require the reference
+within their group; queries in the body do not jump to a name.
+
+For `x_{ij}^2`, `ia/aa` select `ij`/`{ij}` in the subscript. The bare superscript
+`2` is not an argument selection. `iu/au` remain available for both forms: they
+select `ij`/`_{ij}` or `2`/`^2`, excluding the base and including the marker for
+around. `x^\alpha` and `\sqrt x` have no `ia/aa` match unless a complete enclosing
+group exists. Incomplete groups are skipped. Empty interiors are valid. Counts
+select enclosing groups; nonempty references require a strictly larger containing
+selection. No match returns nil. A single-character Visual reference starts a
+cursor query in both adapters.
 
 `cic` 修改命令名并保留全部参数，包括可选参数；支持单参数、多参数和无参数命令。
-`ia/aa` 选择参考位置所在的参数，包括可选参数和隐式参数。`ig/ag` 选择任意已解析
-花括号或方括号分组，包括独立分组和上下标中的分组。`x_{ij}^2` 中，`iS/aS` 在
-下标处选择 `ij/_{ij}`，在上标处选择 `2/^2`，不包含底数。`iN/aN` 从正文选择
-begin 端的名字及其分组，从 end 端选择结束名字及其分组；编辑 `iN` 只影响一端。
-大写 ID 保留原生句子对象及 MiniAi 的 next-object 前缀。内部可以为空。
-计数选择包围层级，非空参考选区必须扩展为更大的包围选区；无匹配返回 nil。
-两个适配器都将单字符可视选区作为光标查询。
+`ia/aa` 只选择完整的花括号或方括号分组，覆盖带括号的命令参数、begin/end 中的
+环境名、带括号的上下标、独立分组，以及 label、section 等专用语法中的参数分组。
+依据分组结构识别，不枚举父节点类型。环境名要求参考位置在其分组中，不从正文跳转。
+
+`x_{ij}^2` 中，`ia/aa` 在下标处选择 `ij/{ij}`，不选择裸上标 `2`。`iu/au` 仍然
+支持两种形式，分别选择 `ij/_{ij}` 或 `2/^2`，不含底数，around 包含标记。
+`x^\alpha` 和 `\sqrt x` 的裸参数不匹配 `ia/aa`；若外面还有完整分组，则可选择
+那个包围分组。不完整分组会跳过，内部可以为空。计数选择包围分组，非空参考选区
+要求严格扩展，无匹配返回 nil；两个适配器都把单字符可视选区视为光标查询。
+
+The default objects are `c/a/m/e/u/S/i/d`; scripts use `u`, while `S` is reserved for sections. The separate `g/N` textobjects have been
+merged into `a`. Pairwise keeps `g` as a surround-only selector. Editing an
+environment name through `ia` changes that end only; use `csee` to rename both.
+
+默认文本对象为 `c/a/m/e/u/S/i/d`；独立的 `g/N` 对象合并进 `a`。Pairwise 保留 `g` 作为
+仅用于 surround 的 selector。通过 `ia` 修改环境名只影响选中的一端，同时修改
+两端请用 `csee`。
+
+`iS/aS` select sections, preserving native `is/as` sentence objects. Section
+inside excludes the heading, short title, and surrounding whitespace; around
+includes the heading, indentation, and separators through the next same/higher
+section or container boundary. Subsections belong to their parent section.
+`ii/ai` similarly select list item contents or the complete item, including
+`\item[label]`. Nested lists are handled structurally; counts select enclosing
+items/sections rather than adjacent siblings. Trailing blank lines belong to
+the preceding entry. These are characterwise ranges that include complete lines
+when the entry occupies its own lines, so `daS` and `dai` remove whole entries.
+
+`iS/aS` 选择章节，保留原生 `is/as` 句子对象。章节内部不含标题、短标题选项和
+两端空白；整体包含标题、缩进及到下一个同级/上级章节或容器边界之前的分隔空白。
+子章节归属父章节。`ii/ai` 类似地选择列表项正文或包含 `\item[label]` 的完整条目。
+嵌套列表依照语法结构处理，计数选择外层条目/章节，不选择相邻条目。尾部空行归属
+前一条目。返回字符选区；当条目独占行时包含完整行，`daS/dai` 因此能删除完整条目。
+
+`id/ad` cover curly/bracket groups, ordinary parentheses, explicit paired commands
+such as `\langle…\rangle`, and sized `\left…\right` / `\bigl…\bigr` delimiters.
+Inside retains whitespace immediately between the delimiters. Invisible `.`
+delimiters and multiline contents are supported; unbalanced syntax is skipped.
+Plain bars and `\vert` are not guessed as pairs, since they also denote relations.
+Pairwise's `dsd` removes the selected pair; `ysiwd` adds `\left(…\right)`.
+The implementation uses nvimtex's parsed nodes and scoped token matching, not
+VimTeX regexes or cursor manipulation. `im/am` continue selecting math regions;
+VimTeX's item key `m` is deliberately assigned to `i` here.
+
+`id/ad` 支持花括号/方括号分组、普通圆括号、`\langle…\rangle` 等显式成对命令，
+以及 `\left…\right`、`\bigl…\bigr` 等大小修饰定界符。内部保留定界符之间的空白。
+支持不可见的 `.` 定界符和多行内容，跳过不完整配对。普通竖线和 `\vert` 也可表示
+关系，因此不猜测配对。Pairwise 的 `dsd` 删除配对，`ysiwd` 添加 `\left(…\right)`。
+实现使用 nvimtex 解析节点和同一语法作用域内的 token 匹配，不使用 VimTeX 正则或
+移动光标。`im/am` 保持数学区域含义；VimTeX 的 item 按键 `m` 在这里改为 `i`。
 
 Command surround is separate from `ic`: only a complete braced single-argument
 command is a wrapper. For `\sqrt[3]{x}`, opening is `\sqrt[3]{`, inside is `x`,
@@ -115,20 +165,20 @@ local wrapper = core.find_pair("c", context)
 ```
 
 `bufnr`, `reference`, and `inner` are required; count defaults to 1.
-`find(id, context)` returns Range4 for `c/a/m/e/g/S/N`: zero-based rows and byte
+`find(id, context)` returns Range4 for `c/a/m/e/u/S/i/d`: zero-based rows and byte
 columns, exclusive end. Equal endpoints mean a cursor point on input or an
 empty selection on output. `find_bounds(id, context, record?)` returns selection
 boundaries `outer_start`, `inner_start`, `inner_end`, `outer_end` as `{row, col}`.
 `find_pair(id, context, record?)` returns the same shape for removable
-`c/m/e/g` boundaries. Command wrappers require one braced argument and exclude
+`c/m/e/g/d` boundaries. Command wrappers require one braced argument and exclude
 begin/end markers; math and environment boundaries require complete syntax. The optional callback receives
 counted layers, including intermediate ones.
 
-`bufnr/reference/inner` 必填，count 默认 1。`find(id, context)` 支持 `c/a/m/e/g/S/N`，
+`bufnr/reference/inner` 必填，count 默认 1。`find(id, context)` 支持 `c/a/m/e/u/S/i/d`，
 返回 Range4：行列从零开始，列以字节计，末端不包含；相同起止表示输入光标点或
 输出空选区。`find_bounds(id, context, record?)` 返回选区的四个边界
 `outer_start/inner_start/inner_end/outer_end`，每个为 `{行, 字节列}`。
-`find_pair(id, context, record?)` 为可移除的 `c/m/e/g` 边界返回同样形状。
+`find_pair(id, context, record?)` 为可移除的 `c/m/e/g/d` 边界返回同样形状。
 命令包装要求一个花括号参数，排除 begin/end；数学和环境要求完整语法。可选回调接收计数经过的各层，包括中间层。
 
 The core parses the specified buffer and LaTeX injections, including hidden
@@ -136,8 +186,9 @@ buffers, without reading the current cursor or editing text, selections, or
 mappings. It depends on neither plugin. MiniAi converts Range4 to its one-based,
 inclusive regions, handling UTF-8 and newlines, and merges objects into buffer
 `miniai_config` without copying global options. Pairwise uses only its public
-`api.register`: IDs `nvimtex.c/a/m/e/g/S/N`, scoped to the buffer, register
-`textobject.find`; `c/m/e/g` also supply independent `surround.find` and `add`.
+`api.register`: IDs `nvimtex.c/a/m/e/u/S/i/d`, scoped to the buffer, register
+`textobject.find`; `c/m/e/d` also supply independent `surround.find` and `add`.
+`nvimtex.g` supplies only surround lookup/addition, with textobjects disabled.
 The Pairwise adapter exports these wrapper finders in `pairs` and textobject
 finders in `objects`.
 The finder session receives complete counted layers through its documented
@@ -148,8 +199,8 @@ core 解析指定 buffer 及 LaTeX 注入区域，支持隐藏 buffer，不读�
 不修改文本、选区或映射，也不依赖上述插件。MiniAi 将 Range4 转换为从一开始、
 包含末端的坐标，处理 UTF-8 和换行；只合并 buffer 的 `miniai_config`，不复制
 全局选项。Pairwise 仅通过公开 `api.register` 注册 buffer 局部的
-`nvimtex.c/a/m/e/g/S/N`，提供 `textobject.find`；`c/m/e/g` 另提供独立的
-`surround.find` 和 `add`。Pairwise 适配器通过 `pairs` 导出包装 finder，通过
+`nvimtex.c/a/m/e/u/S/i/d`，提供 `textobject.find`；`c/m/e/d` 另提供独立的
+`surround.find` 和 `add`。`nvimtex.g` 只提供 surround 查找与添加，关闭文本对象。Pairwise 适配器通过 `pairs` 导出包装 finder，通过
 `objects` 导出文本对象 finder。
 通过 finder session 文档中的 `matches` 集合报告完整计数层级。
 映射、操作符、寄存器、撤销、重复和注册生命周期由 Pairwise 负责。

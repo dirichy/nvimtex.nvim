@@ -83,25 +83,50 @@ for _, case in ipairs({
 end
 
 for _, case in ipairs({
-	{ [[{a{|中文}b}]], "g", "中文", "{中文}" },
-	{ [[\sqrt[|3]{x}]], "g", "3", "[3]" },
-	{ [[{|}]], "g", "", "{}" },
-	{ [[$x_{|ij}^2$]], "S", "ij", "_{ij}" },
-	{ [[$x_i^{|jk}$]], "S", "jk", "^{jk}" },
-	{ [[$x_|i$]], "S", "i", "_i" },
-	{ [[$x_\al|pha$]], "S", [[\alpha]], [[_\alpha]] },
-	{ [[$|x_i$]], "S", nil, nil },
-	{ [[\begin{align*}|x\end{align*}]], "N", "align*", "{align*}" },
-	{ [[\begin{align*}x\end{al|ign*}]], "N", "align*", "{align*}" },
+	{ [[{a{|中文}b}]], "a", "中文", "{中文}" },
+	{ [[\sqrt[|3]{x}]], "a", "3", "[3]" },
+	{ [[{|}]], "a", "", "{}" },
+	{ [[$x_{|ij}^2$]], "u", "ij", "_{ij}" },
+	{ [[$x_i^{|jk}$]], "u", "jk", "^{jk}" },
+	{ [[$x_|i$]], "u", "i", "_i" },
+	{ [[$x_\al|pha$]], "u", [[\alpha]], [[_\alpha]] },
+	{ [[$|x_i$]], "u", nil, nil },
+	{ [[\begin{al|ign*}x\end{align*}]], "a", "align*", "{align*}" },
+	{ [[\begin{align*}x\end{al|ign*}]], "a", "align*", "{align*}" },
 }) do
 	local query = fixture(case[1])
 	eq(text(query, core.find(case[2], query)), case[3], "new inside: " .. case[1])
 	query.inner = false
 	eq(text(query, core.find(case[2], query)), case[4], "new around: " .. case[1])
 end
+for _, sample in ipairs({
+	{ [[$x_{|ij}$]], "ij", "{ij}" },
+	{ [[$x^{|2}$]], "2", "{2}" },
+	{ [[$x_|i$]], nil, nil },
+	{ [[$x^|2$]], nil, nil },
+	{ [[$x_{|}$]], "", "{}" },
+	{ [[\section{Ti|tle}]], "Title", "{Title}" },
+	{ [[\label{ke|y}]], "key", "{key}" },
+	{ [[$x_\al|pha$]], nil, nil },
+	{ [[\sqrt |x]], nil, nil },
+	{ [[\begin{align*}|x\end{align*}]], nil, nil },
+	{ [[$|x_i$]], nil, nil },
+	{ [[{\sqrt |x}]], [[\sqrt x]], [[{\sqrt x}]] },
+	{ [[$x_{y^|2}$]], "y^2", "{y^2}" },
+	{ [[{|x]], nil, nil },
+}) do
+	local query = fixture(sample[1])
+	eq(text(query, core.find("a", query)), sample[2], "general inside argument: " .. sample[1])
+	query.inner = false
+	eq(text(query, core.find("a", query)), sample[3], "general around argument: " .. sample[1])
+end
+local nested_argument = fixture([[$x_{i_{|j}}$]])
+nested_argument.count = 2
+eq(text(nested_argument, core.find("a", nested_argument)), "i_{j}", "script argument layers are counted once")
+
 local grouped = fixture([[{a{|x}b}]])
 grouped.count = 2
-eq(text(grouped, core.find("g", grouped)), "a{x}b", "group nesting")
+eq(text(grouped, core.find("a", grouped)), "a{x}b", "group nesting")
 for _, sample in ipairs({
 	{ "g", [[{|x}]], "x" },
 	{ "m", [[$|x$]], "x" },
@@ -120,9 +145,58 @@ eq(core.find_pair("g", unfinished), nil, "unfinished group has no removable pair
 
 local scripts = fixture([[$x_{i_{|j}}$]])
 scripts.count = 2
-eq(text(scripts, core.find("S", scripts)), "i_{j}", "script nesting")
+eq(text(scripts, core.find("u", scripts)), "i_{j}", "script nesting")
 local mismatched = fixture([[\begin{align}|x\end{equation}]])
 eq(core.find_pair("e", mismatched), nil, "mismatched environment names are not removable")
+
+for _, case in ipairs({
+	{ [[$\left( |x \right)$]], " x ", [[\left( x \right)]] },
+	{ [=[$\bigl[|x\bigr]$]=], "x", [=[\bigl[x\bigr]]=] },
+	{ [[$\left. |x \right|$]], " x ", [[\left. x \right|]] },
+	{ [[$\langle |x\rangle$]], " x", [[\langle x\rangle]] },
+	{ [[$\{|x\}$]], "x", [[\{x\}]] },
+	{ [[$(|x)$]], "x", "(x)" },
+	{ [[$\left( |x$]], nil, nil },
+	{ [[$\left( |x\right$]], nil, nil },
+}) do
+	local query = fixture(case[1])
+	eq(text(query, core.find("d", query)), case[2], "inside delimiters: " .. case[1])
+	query.inner = false
+	eq(text(query, core.find("d", query)), case[3], "around delimiters: " .. case[1])
+end
+local nested_delimiters = fixture([[$(\langle |x\rangle)$]])
+nested_delimiters.count = 2
+eq(text(nested_delimiters, core.find("d", nested_delimiters)), [[\langle x\rangle]], "delimiter count")
+local section = fixture(
+	"\\begin{document}\n\\section{A}\n|first\n\n\\subsection{B}\nsecond\n\n\\section{C}\nthird\n\\end{document}"
+)
+eq(text(section, core.find("S", section)), "first\n\n\\subsection{B}\nsecond", "section includes subsections")
+section.inner = false
+eq(
+	text(section, core.find("S", section)),
+	"\\section{A}\nfirst\n\n\\subsection{B}\nsecond\n\n",
+	"section around stops at sibling"
+)
+local subsection = fixture("\\section{A}\none\n\\subsection[short]{B}\n|two\n\n\\section*{C}\nthree")
+eq(text(subsection, core.find("S", subsection)), "two", "subsection body excludes heading/options")
+subsection.count = 2
+eq(text(subsection, core.find("S", subsection)), "one\n\\subsection[short]{B}\ntwo", "section count")
+local separator = fixture("\\section{A}\none\n|\n\\section{B}\ntwo")
+eq(text(separator, core.find("S", separator)), "one", "section includes trailing separator in lookup")
+local item = fixture("\\begin{itemize}\n  \\item[label] |first\n\n  \\item second\n\\end{itemize}")
+eq(text(item, core.find("i", item)), "first", "item body excludes label")
+item.inner = false
+eq(text(item, core.find("i", item)), "  \\item[label] first\n\n", "around item includes indentation and separator")
+local nested_item = fixture(
+	"\\begin{itemize}\n\\item outer\n\\begin{enumerate}\n\\item |inner\n\\end{enumerate}\n\\item next\n\\end{itemize}"
+)
+eq(text(nested_item, core.find("i", nested_item)), "inner", "nested item body")
+nested_item.count = 2
+eq(
+	text(nested_item, core.find("i", nested_item)),
+	"outer\n\\begin{enumerate}\n\\item inner\n\\end{enumerate}",
+	"nested item count"
+)
 
 for _, case in ipairs({
 	{ [[\textbf{|hello}]], "textbf", [[\textbf{hello}]], true, "hello" },
