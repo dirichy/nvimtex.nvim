@@ -1,7 +1,7 @@
 local M = {}
 ---@type {setup_buf: fun(bufnr:integer):boolean}?
 local integration
-local filetypes = { "tex", "plaintex", "latex", "markdown", "rmd", "quarto" }
+local filetypes = require("nvimtex.util").latex_filetypes
 local adapters = { ["mini.ai"] = "mini_ai", pairwise = "pairwise" }
 
 ---@param bufnr? integer

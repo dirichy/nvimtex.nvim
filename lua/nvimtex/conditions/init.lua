@@ -6,11 +6,19 @@ local M = {}
 ---@param b number start_col
 ---@param c number end_line
 ---@param d number end_col
----@return Nvimtex.LNode|false
-function M.in_math(a, b, c, d)
+---@param bufnr? integer
+---@return TSNode?
+function M.in_math(a, b, c, d, bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	local ft = vim.bo[bufnr].filetype
+	local language = (ft == "tex" or ft == "plaintex" or ft == "latex") and "latex" or nil
+	local ok, tree = pcall(vim.treesitter.get_parser, bufnr, language)
+	if not ok or not tree or not pcall(tree.parse, tree, { { a, c + 1 } }) then
+		return nil
+	end
 	local res
 	local cursor = { a, b }
-	local node = vim.treesitter.get_node({ pos = { a, b } })
+	local node = tree:named_node_for_range({ a, b, c, d }, { ignore_injections = false })
 	while node do
 		if util.TEXT_NODES[node:type()] then
 			return res

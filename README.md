@@ -132,6 +132,33 @@ Pairwise 的 `dsc/cscc/ysiwc` 处理单参数包装；`cic` 可直接改名并�
 接入需要 Pairwise 的 `textobject.find` / `surround.find` API，解析由 nvimtex 负责。
 配置和自定义映射见[中英文说明](docs/textobjects.md)。
 
+## math environment conversion
+
+Normal-mode `m<C-a>` and `m<C-x>` automatically upgrade/downgrade math in LaTeX
+buffers and Markdown LaTeX regions. Counts are supported. Keyflow is opt-in:
+
+```lua
+require("nvimtex").setup({
+  surround = {
+    keyflow = true, -- default: false; requires keyflow.mode(spec)
+    keymaps = {
+      upgrade_math = "m<C-a>", -- another key or false
+      downgrade_math = "m<C-x>",
+    },
+  },
+})
+```
+
+Set `surround = false` to disable automatic math-conversion mappings. With
+keyflow enabled, the first mapping enters a transient mode for repeated
+`<C-a>/<C-x>`; Escape exits. Remove old manual math-mode registrations from your
+configuration. See [math conversion](docs/math-conversion.md) for details.
+
+中文：默认自动安装 buffer 局部的 `m<C-a>/m<C-x>` 升降数学环境映射。
+`surround = false` 整体禁用，单个 key 设为 `false` 可分别禁用，也可改绑。
+keyflow 默认关闭，设为 `true` 后才加载并启用连续操作；请移除个人配置中的旧数学
+模式注册。详见[中英文说明](docs/math-conversion.md)。
+
 ## compiling
 1. support smartly guess compiler for the `tex` file by
 ```lua

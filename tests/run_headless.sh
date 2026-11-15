@@ -10,6 +10,7 @@ nvim --headless -u NONE -i NONE -l tests/headless/textobject_integrations_spec.l
 nvim --headless -u NONE -i NONE -l tests/headless/textobject_keys_spec.lua
 nvim --headless -u NONE -i NONE -l tests/headless/markdown_conditions_spec.lua
 nvim --headless -u NONE -i NONE -l tests/headless/surround_spec.lua
+nvim --headless -u NONE -i NONE -l tests/headless/math_keymaps_spec.lua
 nvim --headless -u NONE -i NONE -l tests/headless/smart_spec.lua
 nvim --headless -u NONE -i NONE -l tests/headless/compile_spec.lua
 nvim --headless -u NONE -i NONE -l tests/headless/compile_real_spec.lua

@@ -1,4 +1,5 @@
 local M = {}
+M.latex_filetypes = { "tex", "plaintex", "latex", "markdown", "rmd", "quarto" }
 function M.source_lines(source)
 	if type(source) == "number" then
 		return vim.api.nvim_buf_get_lines(source, 0, -1, false)

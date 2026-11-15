@@ -161,52 +161,59 @@ local format_arg = {
 	[M.mtype.aligned] = { "\\begin{equation}\\begin{aligned}", "\\end{aligned}\\end{equation}", true, true },
 	[M.mtype.align] = { "\\begin{align}", "\\end{align}", true, true },
 }
+---@return boolean changed
 function M.change_math(mtype, mnode)
 	local buf = vim.api.nvim_win_get_buf(0)
 	if not mnode then
 		local a, b = unpack(vim.api.nvim_win_get_cursor(0))
 		a = a - 1
-		mnode = conditions.in_math(a, b, a, b)
+		mnode = conditions.in_math(a, b, a, b, buf)
 	end
 	if not mnode then
 		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
-		return
+		return false
 	end
 	local opts = format_arg[mtype]
 	if not opts then
 		vim.notify("Unknown math target type", vim.log.levels.WARN)
-		return
+		return false
 	end
 	local s, t, u, v = mnode:range()
 	local lines = M.format_math(buf, mnode, opts)
 	if lines then
 		vim.api.nvim_buf_set_text(buf, s, t, u, v, lines)
+		return true
 	end
+	return false
 end
+local function cycle_math(direction)
+	local buf = vim.api.nvim_win_get_buf(0)
+	local a, b = unpack(vim.api.nvim_win_get_cursor(0))
+	a = a - 1
+	local mnode = conditions.in_math(a, b, a, b, buf)
+	if not mnode then
+		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
+		return false
+	end
+	local mtype = M.get_math_type(buf, mnode)
+	if mtype == M.mtype.unknown then
+		return false
+	end
+	return M.change_math((mtype + direction) % mtype_count, mnode)
+end
+
+---@return boolean changed
 function M.upgrade_math()
-	local buf = vim.api.nvim_win_get_buf(0)
-	local a, b = unpack(vim.api.nvim_win_get_cursor(0))
-	a = a - 1
-	local mnode = conditions.in_math(a, b, a, b)
-	if not mnode then
-		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
-		return
-	end
-	local mtype = M.get_math_type(buf, mnode)
-	mtype = (mtype + 1) % mtype_count
-	M.change_math(mtype, mnode)
+	return cycle_math(1)
 end
+
+---@return boolean changed
 function M.downgrade_math()
-	local buf = vim.api.nvim_win_get_buf(0)
-	local a, b = unpack(vim.api.nvim_win_get_cursor(0))
-	a = a - 1
-	local mnode = conditions.in_math(a, b, a, b)
-	if not mnode then
-		vim.notify("Can't find math node on cursor!", vim.log.levels.WARN)
-		return
-	end
-	local mtype = M.get_math_type(buf, mnode)
-	mtype = (mtype - 1) % mtype_count
-	M.change_math(mtype, mnode)
+	return cycle_math(-1)
+end
+
+---@param opts? Nvimtex.Surround.Options|false
+function M.setup(opts)
+	require("nvimtex.surround.keymaps").setup(opts)
 end
 return M
