@@ -225,7 +225,15 @@ after `filetype_extend("markdown", { "tex" })`.
 ```sh
 sh tests/run_headless.sh
 ```
-This runs smart backend strategy tests, mocked compile pipeline tests, and real TeX fixture tests. Real engine cases are skipped when the corresponding executable exists but cannot compile cleanly in the local environment.
+This runs smart backend strategy tests, mocked compile pipeline tests, and real
+TeX fixture tests. Missing executables skip their cases; installed engines that
+fail to compile cause a test failure with the compiler output. Build outputs go
+to `/tmp`, while engine formats and font caches use your normal TeX configuration
+so each run does not rebuild the font database.
+
+测试包含编译策略、模拟编译流程和真实 TeX 用例。缺少可执行文件时跳过对应用例；
+已安装的引擎编译失败则报错并显示日志。编译产物放在 `/tmp`，格式文件和字体缓存
+沿用正常 TeX 配置，不在每次运行时重建字体数据库。
 
 Run just the parser and conceal regression suite with:
 ```sh

@@ -5,10 +5,8 @@ local fixtures = vim.fn.getcwd() .. "/tests/fixtures/compile-real"
 local tmp_root = "/tmp/nvimtex.nvim-real-tests"
 vim.fn.delete(tmp_root, "rf")
 vim.fn.mkdir(tmp_root, "p")
-vim.env.TEXMFVAR = tmp_root .. "/texmf-var"
-vim.env.TEXMFCACHE = tmp_root .. "/texmf-cache"
-vim.fn.mkdir(vim.env.TEXMFVAR, "p")
-vim.fn.mkdir(vim.env.TEXMFCACHE, "p")
+-- Isolate build outputs, but reuse the installed engine's formats/font cache.
+-- Fresh caches force LuaLaTeX to rescan fonts and may violate openout_any rules.
 
 local commands = {}
 
@@ -79,11 +77,7 @@ local function eq(actual, expected, label)
 	end
 end
 
-local usable = {}
-local function can_compile_with(command)
-	if usable[command] ~= nil then
-		return usable[command]
-	end
+local function probe_engine(command)
 	local root = tmp_root .. "/probe-" .. command
 	local build = root .. "/build"
 	vim.fn.mkdir(build, "p")
@@ -101,8 +95,16 @@ local function can_compile_with(command)
 		"-output-directory=" .. build,
 		"main",
 	}, { cwd = root, text = true }):wait()
-	usable[command] = result.code == 0
-	return usable[command]
+	if result.code ~= 0 then
+		error(
+			command
+				.. ": engine probe failed; see "
+				.. build
+				.. "/main.log\n"
+				.. (result.stdout or "")
+				.. (result.stderr or "")
+		)
+	end
 end
 
 local function assert_outputs(root, build_dir, name)
@@ -130,9 +132,8 @@ local function run_case(case)
 		print("skip " .. case.name .. ": missing " .. case.expected[1])
 		return
 	end
-	if case.probe_engine and not can_compile_with(case.expected[1]) then
-		print("skip " .. case.name .. ": " .. case.expected[1] .. " cannot compile cleanly")
-		return
+	if case.probe_engine then
+		probe_engine(case.expected[1])
 	end
 	if case.needs and vim.fn.executable(case.needs) == 0 then
 		print("skip " .. case.name .. ": missing " .. case.needs)
