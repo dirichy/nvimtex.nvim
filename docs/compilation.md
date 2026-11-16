@@ -33,13 +33,17 @@ require("nvimtex").setup({
 The engine comes from an explicit `engine`, `% !TeX program` / `% !TeX TS-program`,
 or package/document-class constraints resolved using `favor`. The adapter passes
 `-pdf`, `-xelatex`, or `-lualatex` accordingly. Package/class detection uses the
-LaTeX Tree-sitter parser. Existing custom `detection.documentclasses`,
+existing active LaTeX Tree-sitter tree when it is valid; otherwise it reads the
+preamble as text. Installing a parser alone does not enable this path or trigger
+a parse. Existing custom `detection.documentclasses`,
 `detection.documentclass_prefixes`, `detection.compiler_magic_keys`, and
 `detection.packages` rules are retained.
 
 引擎选择优先使用显式 `engine`，其次是 TeX magic comment，再按宏包、文档类和
 `favor` 决定。适配层相应传入 `-pdf`、`-xelatex` 或 `-lualatex`。
-宏包和文档类识别使用 LaTeX Tree-sitter parser；原有自定义引擎识别规则保留。
+宏包和文档类识别优先复用正在启用且有效的 LaTeX Tree-sitter 树；没有运行高亮、
+树已失效或没有 parser 时，按文本读取导言区，不会为此启动或刷新 parser。
+原有自定义引擎识别规则保留。
 
 `args` replaces the default argument list; retain `-synctex=1` if you need PDF
 search. Native latexmk flags such as `-r project.rc`, `-bibtex-`, or `-e` expressions
@@ -57,9 +61,9 @@ latexmk 原生选项及其参数应分别放在 argv 列表中。引擎通过 `e
 
 ```lua
 local compile = require("nvimtex.compile")
-compile.default() -- current saved file / 当前已保存文件
+compile.default() -- current document’s main file / 当前文档声明的主文件
 compile.default({ path = "/path/to/main.tex", engine = "xelatex" })
-compile.showlog() -- current file's TeX log / 当前文件的 TeX 日志
+compile.showlog() -- main document’s TeX log / 主文件的 TeX 日志
 compile.arara()   -- explicit alternative / 显式选择 arara
 ```
 
@@ -67,12 +71,54 @@ compile.arara()   -- explicit alternative / 显式选择 arara
 An optional `source` (buffer number or TeX string) affects engine detection only;
 latexmk always compiles the saved file. With `path` alone, detection uses that
 file's loaded buffer or reads it from disk, independently of the current buffer.
-Automatic main-file discovery is not implemented; pass the main file via `path`.
+An explicit `path` is the exact target and bypasses declarations in the current file.
 
 `default()` 可逐次覆盖 `executable`、`args` 和 `build_root`。可选 `source`
 （buffer 编号或 TeX 字符串）只用于引擎识别；实际编译读取磁盘上的文件。
 只传 `path` 时使用目标文件已加载的 buffer 或磁盘内容，不误用当前 buffer。
-尚未实现自动发现主文件；多文件项目请通过 `path` 指定主文件。
+显式 `path` 直接指定编译目标，不受当前文件声明影响。
+
+Text fallback reads literal `\documentclass`, `\usepackage`, and `\RequirePackage`
+declarations up to `\begin{document}`, supporting multiline declarations and
+comments. It does not execute macros, evaluate TeX conditionals, or follow
+`\input` files. Put engine/root magic comments before the first ordinary source
+or blank line. For declarations generated through macros or included preambles,
+specify `engine` or an engine magic comment explicitly.
+
+文本回退只读取 `\begin{document}` 前的字面文档类与宏包声明，支持跨行和注释，
+不执行宏、不判断 TeX 条件分支，也不跟随 `\input`。引擎和 root magic comment
+放在第一个普通源码行或空行之前。通过宏或导入文件生成的声明，请显式指定引擎。
+
+## Main document / 主文件
+
+Without `path`, compilation selects the current file's main document in this order:
+
+1. A `% !TeX root = ../main.tex` comment, parsed by the existing magic-comment helper.
+2. `\documentclass[../main.tex]{subfiles}`.
+3. The current file itself.
+
+Relative declarations are resolved against the declaring file's directory;
+absolute paths and spaces are supported. Put root comments in the initial TeX
+magic-comment block, before any blank or ordinary source line. Paths are literal:
+no globbing, directory scan, reverse include search, or `.latexmain` lookup occurs.
+A declared path must name an existing readable file; an empty root or malformed
+`subfiles` option is an error. Supply the full filename, including `.tex`.
+
+Declarations select one target, without recursively following that target's own
+root/subfiles declaration. Engine detection then reads the selected main file
+(unless `source` explicitly overrides it). A main file and its children share the
+same build directory. Default log lookup, arara, and PDF viewers use the same
+selection rule; Lua callers can still supply `path` to `default()` or `showlog()`.
+
+不传 `path` 时，依次选择当前文件的 root magic comment、`subfiles` 文档类参数、
+当前文件。相对路径按声明所在文件的目录解析，支持绝对路径和空格。
+root comment 请放在文件开头的 TeX magic comment 块中，位于空行或普通源码之前。
+路径按字面使用，不支持通配符，也不扫描目录、反查包含关系或查找 `.latexmain`。
+请写完整文件名（包括 `.tex`）；声明目标不可读、root 为空或 `subfiles` 参数无效时报错。
+
+声明只解析一层，不继续追踪目标文件自身的 root/subfiles 声明。
+选定主文件后，从主文件识别引擎（显式传入 `source` 时除外）；主文件和子文件共享
+构建目录。默认日志、arara 和 PDF 查看器复用相同规则；Lua 调用仍可直接传 `path`。
 
 Intermediate files live under `build_root/<sha256(absolute-source-path)>/`.
 After exit code zero, the PDF and available `.synctex.gz` are copied beside the
@@ -80,13 +126,15 @@ source. A failed build leaves previously published files intact. Success reports
 the selected engine and latexmk's total time; individual TeX/BibTeX timings are no
 longer collected. `showlog()` requires `texlogsieve` and `baleia.nvim`; compilation
 requires latexmk, its selected tools, and `plenary.nvim`. Engine/font caches keep
-their normal TeX configuration.
+their normal TeX configuration. Compilation, main-file selection, and PDF viewing
+do not require a Tree-sitter parser; conceal and structural editing still do.
 
 中间文件放在 `build_root/<源文件绝对路径的 sha256>/`。进程成功退出后才把 PDF
 和存在的 `.synctex.gz` 复制到源目录；失败时保留上次发布的结果。
 成功通知显示引擎和 latexmk 总耗时，不再采集各个 TeX/BibTeX 子步骤的耗时。
 日志展示依赖 `texlogsieve` 和 `baleia.nvim`，编译依赖 latexmk、对应工具及
-`plenary.nvim`。字体缓存沿用系统正常配置。
+`plenary.nvim`。字体缓存沿用系统正常配置。编译、主文件识别及 PDF 查看不依赖
+Tree-sitter parser；conceal 和结构编辑仍然依赖它。
 
 ## Migration / 旧配置迁移
 

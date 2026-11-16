@@ -27,6 +27,7 @@ end
 ---@return nil
 function M.showlog(path)
 	local latexmk = require("nvimtex.compile.latexmk")
+	path = path or require("nvimtex.util").main_file()
 	return require("nvimtex.compile.util").showlog(path, { build_root = latexmk.config.build_root })
 end
 setmetatable(M, {

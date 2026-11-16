@@ -46,12 +46,16 @@ local function copy_fixture(case)
 	return target
 end
 
-local function build(root, args)
+local function build(root, args, child)
 	commands, notices, errors = {}, {}, {}
 	local configured = vim.deepcopy(latexmk.config.args)
 	vim.list_extend(configured, { "-norc" })
 	vim.list_extend(configured, args or {})
 	local opts = { path = root .. "/main.tex", build_root = root .. "/build", args = configured }
+	if child then
+		vim.cmd.edit(vim.fn.fnameescape(root .. "/chapter.tex"))
+		opts.path = nil
+	end
 	compile.default(opts)
 	assert(
 		vim.wait(1000, function()
@@ -74,7 +78,8 @@ local function run_case(case)
 	if case.failure then
 		vim.fn.writefile({ "previous PDF" }, root .. "/main.pdf")
 	end
-	local ctx, output = build(root, case.args)
+	local ctx, output = build(root, case.args, case.child)
+	assert(ctx.path == root .. "/main.tex", "build did not select main file")
 	if case.failure then
 		assert(#notices == 0 and #errors == 1, "unstable PGF build must fail without a success notification")
 		assert(output:find("too many passes", 1, true), output)
@@ -127,6 +132,7 @@ for _, case in ipairs({
 	{ name = "magic-xelatex", engine = "xelatex" },
 	{ name = "magic-lualatex", engine = "lualatex" },
 	{ name = "rerun-label" },
+	{ name = "subfiles", child = true },
 	{ name = "toc", minimum_runs = 3 },
 	{ name = "bibtex", needs = "bibtex" },
 	{ name = "biber", needs = "biber" },

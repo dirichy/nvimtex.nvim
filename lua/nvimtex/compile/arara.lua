@@ -43,12 +43,7 @@ end
 ---@param opts? table Overrides passed to plenary.job.
 ---@return nil
 local function arara(opts)
-	local path
-	local magic_comment = util.get_magic_comment()
-	if magic_comment.root then
-		path = vim.fn.expand("%:p:h") .. "/" .. magic_comment.root
-		path = vim.fs.normalize(path)
-	end
+	local path = util.main_file()
 	local args = vim.tbl_deep_extend("force", default_args(path), opts or {})
 	Job:new(args):start()
 end

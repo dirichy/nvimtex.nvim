@@ -47,7 +47,7 @@
 - [ ] TOC/table of contents：section、subsection、environment、label、todo 等。
 - [ ] table of labels。
 - [ ] 配置 `include`、`includeexpr`、`suffixesadd`、`define`，增强 `gf` 和定义跳转。
-- [ ] root file 发现：支持 `% !TeX root = ...`、`.latexmkrc`、subfiles/import、多文件 include graph。
+- [x] 主文件通过显式 Lua `path`、`% !TeX root = ...` 或 subfiles 参数选择；不做启发式搜索。
 - [ ] package 文档查询：类似 VimTeX 的 latexdoc 入口。
 - [ ] word count：集成 `texcount`。
 

@@ -108,4 +108,49 @@ compile_util.showlog = function(log_path, opts)
 end
 compile.showlog(path)
 eq(shown, { path, root .. "/build" }, "public log entry point")
+
+local util = require("nvimtex.util")
+local main = root .. "/main document.tex"
+vim.fn.writefile({ "% !TeX program = xelatex", "\\documentclass{article}" }, main)
+vim.fn.mkdir(root .. "/chapters", "p")
+local chapter = root .. "/chapters/chapter.tex"
+local chapter_buf = vim.api.nvim_create_buf(true, false)
+vim.api.nvim_buf_set_name(chapter_buf, chapter)
+vim.api.nvim_set_current_buf(chapter_buf)
+local function source(text)
+	vim.api.nvim_buf_set_lines(chapter_buf, 0, -1, false, vim.split(text, "\n", { plain = true }))
+end
+source("% !TeX root = ../main document.tex\n\\documentclass[missing.tex]{subfiles}")
+eq(util.main_file(), main, "root comment precedes subfiles")
+local project = latexmk.compile_context()
+eq(project.path, main, "default compile follows root declaration")
+eq(project.engine, "xelatex", "engine comes from main document")
+eq(project.build_dir, latexmk.compile_context({ path = main }).build_dir, "main and child share build directory")
+compile.showlog()
+eq(shown[1], main, "default log follows main document")
+
+source("\\documentclass[../main document.tex]{subfiles}")
+eq(util.main_file(), main, "subfiles relative main path")
+source("% !TeX root = " .. main .. "\n\\documentclass{article}")
+eq(util.main_file(), main, "absolute main path")
+source("\\documentclass{article}\n\\begin{document}child\\end{document}")
+eq(util.main_file(), chapter, "no declaration uses current file")
+
+for _, text in ipairs({
+	"% !TeX root = ../missing.tex\n\\documentclass{article}",
+	"% !TeX root = \n\\documentclass{article}",
+	"\\documentclass[../missing.tex]{subfiles}",
+	"\\documentclass[]{subfiles}",
+}) do
+	source(text)
+	local ok = pcall(util.main_file)
+	eq(ok, false, "invalid declaration must fail")
+	eq(latexmk.compile_context({ path = main }).path, main, "explicit path bypasses current declaration")
+end
+
+-- A declaration selects exactly one target; the target is not recursively
+-- followed, so self declarations and links back to a child cannot loop.
+vim.fn.writefile({ "% !TeX root = chapters/chapter.tex", "\\documentclass{article}" }, main)
+source("% !TeX root = ../main document.tex")
+eq(latexmk.compile_context().path, main, "declared target is not recursively redirected")
 print("ok latexmk argument, source, publication and failure handling")

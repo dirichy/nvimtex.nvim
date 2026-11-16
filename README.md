@@ -170,7 +170,12 @@ require("nvimtex.compile").default()
 The default backend calls latexmk once. Latexmk handles reruns, BibTeX/Biber,
 indexes, dependencies, and project `.latexmkrc` rules. nvimtex selects the engine
 from TeX magic comments, packages, document class, and the configured preference
-order; set `engine` to override detection.
+order; set `engine` to override detection. Compilation can work without
+Tree-sitter: header helpers reuse an active valid tree or read the preamble as
+text, without starting a parser. From a child file, declare the main
+document with `% !TeX root = ../main.tex` or
+`\documentclass[../main.tex]{subfiles}`. Otherwise the current file is compiled.
+Lua callers can pass an exact target with `default({ path = "/path/to/main.tex" })`.
 
 ```lua
 require("nvimtex").setup({
@@ -191,6 +196,11 @@ See [compilation configuration and migration](docs/compilation.md).
 
 中文：默认后端调用 latexmk，由它管理重编译、参考文献、索引、依赖和项目
 `.latexmkrc`。nvimtex 保留引擎自动选择，也可用 `compile.engine` 指定。
+编译所需的文件头 helper 可在没有 Tree-sitter 时工作：有有效的活动树则复用，
+否则读取导言区文本，不启动 parser。
+子文件通过 `% !TeX root = ../main.tex` 或 `subfiles` 文档类参数声明主文件；
+没有声明则编译当前文件，也可在 Lua 调用中传 `path`。声明的相对路径按子文件目录
+解析，不进行启发式搜索；无效声明报错。日志和查看器使用同一个主文件。
 请安装 latexmk 和所需 TeX 引擎，并先保存文档。中间产物保存在临时构建目录；
 只有编译成功后才复制 PDF 和 SyncTeX，失败时保留上次发布的结果。
 自带的轮数判断、参考文献调度和默认 PGF 忽略规则已移除；旧配置迁移见

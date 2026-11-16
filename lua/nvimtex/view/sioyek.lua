@@ -6,6 +6,7 @@ local default_args = function(path)
 	local jobname = string.match(path, "([^/]*)%.tex$")
 	local cwd = string.match(path, "(.*)/[^/]*%.tex$")
 	local cursor = vim.api.nvim_win_get_cursor(0)[1]
+	local source = vim.api.nvim_buf_get_name(0)
 	local servername = vim.v.servername
 	--HACK: sioyek version is same, but some version support new_instance. use --help is very dirty
 	local sioyek_support_new_instance = vim.system({ "sioyek", "--help" }):wait()
@@ -19,7 +20,7 @@ local default_args = function(path)
 			"--inverse-search",
 			"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
 			"--forward-search-file",
-			path,
+			source,
 			"--forward-search-line",
 			tostring(cursor),
 			cwd .. "/" .. jobname .. ".pdf",
@@ -29,7 +30,7 @@ local default_args = function(path)
 			"--inverse-search",
 			"nvim --server " .. servername .. ' --remote-send "<cmd>edit %1 | call cursor(%2,%3)<cr>"',
 			"--forward-search-file",
-			path,
+			source,
 			"--forward-search-line",
 			tostring(cursor),
 			cwd .. "/" .. jobname .. ".pdf",
@@ -43,13 +44,7 @@ local function sioyek(args)
 	if vim.fn.executable("sioyek") == 0 then
 		error("sioyek is not executable, make sure to install it and add it into PATH")
 	end
-	local path
-	local magic_comment = util.get_magic_comment()
-	if magic_comment.root then
-		path = vim.fn.expand("%:p:h") .. "/" .. magic_comment.root
-		path = vim.fs.normalize(path)
-	end
-	path = path or vim.fn.expand("%:p")
+	local path = util.main_file()
 	local opts = vim.tbl_deep_extend("force", default_args(path), args or {})
 	handle = vim.uv.spawn(opts.command, opts)
 	assert(handle, "can't open sioyek")

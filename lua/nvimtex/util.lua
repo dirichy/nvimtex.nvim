@@ -10,50 +10,133 @@ function M.source_lines(source)
 	return {}
 end
 
+-- Header readers fetch buffer lines in small batches and stop at the preamble.
+local function header_lines(source)
+	if type(source) ~= "number" then
+		return (source .. "\n"):gmatch("([^\n]*)\n")
+	end
+	local row, index, lines = 0, 0, {}
+	return function()
+		if index == #lines then
+			lines = vim.api.nvim_buf_get_lines(source, row, row + 64, false)
+			row, index = row + #lines, 0
+		end
+		index = index + 1
+		return lines[index]
+	end
+end
+
+local function preamble(source)
+	local lines = {}
+	for line in header_lines(source) do
+		-- A percent sign starts a comment only after an even number of slashes.
+		for start, slashes in line:gmatch("()(\\*)%%") do
+			if #slashes % 2 == 0 then
+				line = line:sub(1, start + #slashes - 1)
+				break
+			end
+		end
+		local finish = line:find("\\begin%s*{%s*document%s*}")
+		lines[#lines + 1] = finish and line:sub(1, finish - 1) or line
+		if finish then
+			break
+		end
+	end
+	return table.concat(lines, "\n")
+end
+
+-- Reuse a current tree only while its highlighter is active. Merely having a
+-- parser installed must not start a full parse after users stop Tree-sitter.
+local function header_root(source)
+	if type(source) ~= "number" then
+		return
+	end
+	local buffer = source == 0 and vim.api.nvim_get_current_buf() or source
+	local highlighter = vim.treesitter.highlighter.active[buffer]
+	if highlighter and highlighter.tree:lang() == "latex" and highlighter.tree:is_valid(true) then
+		local tree = highlighter.tree:trees()[1]
+		return tree and tree:root()
+	end
+end
+
 M.get_magic_comment = function(source, ific)
 	source = source or 0
 	if ific == nil then
 		ific = true
 	end
-	local i = 0
 	local result = {}
-	local lines = M.source_lines(source)
-	while true do
-		local line = lines[i + 1]
-		if not line then
-			break
-		end
-		if string.match(line, "^%%%s*!%s*[Tt][Ee][Xx]%s") then
-			local k, v = string.match(line, "^%%%s*!%s*[Tt][Ee][Xx]%s*([^=]-)%s*=%s*(.-)%s*$")
+	for line in header_lines(source) do
+		if line:match("^%%%s*!%s*[Tt][Ee][Xx]%s") then
+			local k, v = line:match("^%%%s*!%s*[Tt][Ee][Xx]%s*([^=]-)%s*=%s*(.-)%s*$")
 			if ific and k then
-				k = string.lower(k)
+				k = k:lower()
 			end
 			if k then
-				local item = { key = k, value = v }
-				table.insert(result, item)
+				result[#result + 1] = { key = k, value = v }
 				result[k] = result[k] or v
 			end
-			i = i + 1
-		elseif string.match(line, "^%%!") then
-			i = i + 1
-			goto continue
-		else
+		elseif not line:match("^%%!") then
 			break
 		end
-		::continue::
 	end
 	return result
 end
+---Resolve the current file's declared main document without searching directories.
+---@return string
+function M.main_file()
+	local path = vim.api.nvim_buf_get_name(0)
+	if path == "" then
+		error("Save the TeX buffer before selecting its main file.")
+	end
+	local declaration = M.get_magic_comment().root
+	if declaration == nil then
+		local class = M.get_documentclass(0)
+		if class.name == "subfiles" then
+			-- The subfiles class takes one bare option: its main document path.
+			local option, value = next(class.opts)
+			if option == nil or value ~= true or next(class.opts, option) ~= nil then
+				error("The subfiles document class requires one main-file path.")
+			end
+			declaration = option
+		end
+	end
+	if declaration == nil then
+		return path
+	end
+	if declaration == "" then
+		error("The TeX root declaration must contain a main-file path.")
+	end
+	local main = M.normalize_file(declaration, { cwd = vim.fs.dirname(path) })
+	if vim.fn.filereadable(main) == 0 then
+		error("Declared TeX main file is not readable: " .. main)
+	end
+	return main
+end
+local function parse_options(text)
+	local opts = {}
+	if not text or text == "" then
+		return opts
+	end
+	text = text:gsub("^%[", ""):gsub("%]$", "")
+	for item in text:gmatch("[^,]+") do
+		local key, value = item:match("^%s*([^=]+)%s*=%s*(.-)%s*$")
+		if key then
+			opts[vim.trim(key)] = vim.trim(value)
+		else
+			local name = vim.trim(item)
+			if name ~= "" then
+				opts[name] = true
+			end
+		end
+	end
+	return opts
+end
+
 --- Get documentclass for a latex buffer
+---@param root TSNode
 ---@param source number|string
 ---@return table
-M.get_documentclass = function(source)
-	local root
-	if type(source) == "number" then
-		root = vim.treesitter.get_parser(source, "latex"):parse()[1]:root()
-	else
-		root = vim.treesitter.get_string_parser(source, "latex"):parse()[1]:root()
-	end
+local function get_documentclass_by_treesitter(root, source)
 	---@type TSNode?
 	local class_node
 	for node in root:iter_children() do
@@ -82,24 +165,20 @@ M.get_documentclass = function(source)
 	end
 	return res
 end
-local function parse_options(text)
-	local opts = {}
-	if not text or text == "" then
-		return opts
-	end
-	text = text:gsub("^%[", ""):gsub("%]$", "")
-	for item in text:gmatch("[^,]+") do
-		local key, value = item:match("^%s*([^=]+)%s*=%s*(.-)%s*$")
-		if key then
-			opts[vim.trim(key)] = vim.trim(value)
-		else
-			local name = vim.trim(item)
-			if name ~= "" then
-				opts[name] = true
-			end
+---@param source number|string
+---@return {name:string, opts:table<string,string|boolean>}
+function M.get_documentclass(source)
+	local root = header_root(source)
+	if root then
+		local ok, class = pcall(get_documentclass_by_treesitter, root, source)
+		if ok then
+			return class
 		end
 	end
-	return opts
+	local text = preamble(source)
+	local options, name = text:match("\\documentclass%f[^%a@]%s*(%b[])%s*(%b{})")
+	name = name or text:match("\\documentclass%f[^%a@]%s*(%b{})")
+	return { name = name and vim.trim(name:sub(2, -2)) or "", opts = parse_options(options) }
 end
 
 local function add_package(result, name, opts)
@@ -114,32 +193,24 @@ end
 
 local function get_packages_by_text(source)
 	local result = {}
-	for _, line in ipairs(M.source_lines(source)) do
-		line = line:gsub("%%.*$", "")
-		for options, package_text in line:gmatch("\\usepackage%s*(%b[])%s*(%b{})") do
-			local opts = parse_options(options)
-			local package_names = package_text:sub(2, -2)
-			for name in package_names:gmatch("[^,]+") do
-				add_package(result, name, opts)
-			end
-		end
-		for package_text in line:gmatch("\\usepackage%s*(%b{})") do
-			local package_names = package_text:sub(2, -2)
-			for name in package_names:gmatch("[^,]+") do
-				add_package(result, name, {})
+	for command, rest in preamble(source):gmatch("\\([%a@]+)([^\\]*)") do
+		if command == "usepackage" or command == "RequirePackage" then
+			local options, names = rest:match("^%s*(%b[])%s*(%b{})")
+			names = names or rest:match("^%s*(%b{})")
+			if names then
+				local opts = parse_options(options)
+				for name in names:sub(2, -2):gmatch("[^,]+") do
+					add_package(result, name, opts)
+				end
 			end
 		end
 	end
 	return result
 end
 
-local function get_packages_by_treesitter(source)
-	local root
-	if type(source) == "number" then
-		root = vim.treesitter.get_parser(source, "latex"):trees()[1]:root()
-	else
-		root = vim.treesitter.get_string_parser(source, "latex"):parse()[1]:root()
-	end
+---@param root TSNode
+---@param source number|string
+local function get_packages_by_treesitter(root, source)
 	local res = {}
 	---@type TSNode?
 	for node in root:iter_children() do
@@ -166,9 +237,12 @@ local function get_packages_by_treesitter(source)
 end
 
 function M.get_packages(source)
-	local ok, result = pcall(get_packages_by_treesitter, source)
-	if ok then
-		return result
+	local root = header_root(source)
+	if root then
+		local ok, result = pcall(get_packages_by_treesitter, root, source)
+		if ok then
+			return result
+		end
 	end
 	return get_packages_by_text(source)
 end

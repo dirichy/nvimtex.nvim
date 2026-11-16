@@ -9,12 +9,7 @@ local default_args = function(path)
 end
 local Job = require("plenary.job")
 local function zathura(args)
-	local path
-	local magic_comment = util.get_magic_comment()
-	if magic_comment.root then
-		path = vim.fn.expand("%:p:h") .. "/" .. magic_comment.root
-		path = vim.fs.normalize(path)
-	end
+	local path = util.main_file()
 	local opts = vim.tbl_deep_extend("force", default_args(path), args or {})
 	Job:new({
 		command = "which",

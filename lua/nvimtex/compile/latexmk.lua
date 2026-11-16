@@ -20,7 +20,7 @@
 ---@field lualatex? boolean
 
 ---@class nvimtex.compile.Options
----@field path? string TeX file; defaults to the current buffer's file.
+---@field path? string Exact TeX target; otherwise use the current file's main declaration.
 ---@field source? number|string Source used only for engine detection; compilation reads the saved file.
 ---@field engine? nvimtex.compile.CompilerName
 ---@field executable? string
@@ -146,9 +146,12 @@ end
 ---@return nvimtex.compile.CompilerName?
 function M.get_compiler(source)
 	local magic_comment = M.get_compiler_by_magic_comment(source)
+	if magic_comment then
+		return next(magic_comment)
+	end
 	local packages = M.get_compiler_by_packages(source)
 	local documentclass = M.get_compiler_by_documentclass(source)
-	local res = magic_comment or intersect_compiler_sets(packages, documentclass)
+	local res = intersect_compiler_sets(packages, documentclass)
 	for _, program in ipairs(M.config.favor) do
 		if res[program] then
 			return program
@@ -161,7 +164,7 @@ end
 ---@return nvimtex.compile.Context
 function M.compile_context(opts)
 	opts = opts or {}
-	local path = opts.path or vim.api.nvim_buf_get_name(0)
+	local path = opts.path or util.main_file()
 	if path == "" then
 		error("Save the TeX buffer before compiling.")
 	end
