@@ -55,7 +55,7 @@ end
 ---@param opts? { build_root?: string }
 function M.showlog(path, opts)
 	opts = opts or {}
-	path = path or vim.fn.expand("%:p")
+	path = vim.fs.normalize(vim.fn.fnamemodify(path or vim.fn.expand("%:p"), ":p"))
 	local jobname = vim.fn.fnamemodify(path, ":t:r")
 	local cwd = vim.fn.fnamemodify(path, ":h")
 	local build_root = opts.build_root or (vim.env.TMPDIR or "/tmp") .. "/nvimtex.nvim"

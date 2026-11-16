@@ -7,7 +7,7 @@
 
 ## 目标定位
 
-当前 nvimtex.nvim 的强项是 Lua/Neovim 原生实现、数学符号 conceal、动态 conceal、snippet、简单编译和 Sioyek/Zathura 查看器集成。和 VimTeX 相比，目前更像一个可用的 LaTeX 编辑增强插件原型，还没有形成完整的 LaTeX 项目工作流。
+当前 nvimtex.nvim 的强项是 Lua/Neovim 原生实现、数学符号 conceal、动态 conceal、snippet、latexmk 编译适配和 Sioyek/Zathura 查看器集成。和 VimTeX 相比，目前更像一个可用的 LaTeX 编辑增强插件原型，还没有形成完整的 LaTeX 项目工作流。
 
 如果目标不是完整复刻 VimTeX，建议优先把“编辑体验 + 编译/viewer 闭环 + 稳定 parser/conceal”做扎实；completion、TOC、quickfix、multi-file project 可以作为第二阶段。
 
@@ -15,9 +15,9 @@
 
 ### 编译与错误反馈
 
-- [ ] 支持 latexmk 后端。VimTeX 默认推荐 latexmk，因为它能处理 rerun、bibtex/biber、索引等多轮逻辑。
+- [x] 默认改用 latexmk；由它管理重编译、参考文献、索引和依赖，移除自带编译调度策略。
 - [ ] 支持 tectonic、latexrun、texpresso 等后端，或至少提供可扩展 backend 接口。
-- [x] 实现 bibtex/biber 检测与运行。已支持显式配置、TeX magic comment、biblatex package option、package/source command、`.bcf`/`.aux` 控制文件多信号判断；`.bib` 文件优先从源码命令解析，产物只作 fallback。
+- [x] BibTeX/Biber 判断与运行交给 latexmk，使用项目 `.latexmkrc` 配置例外。
 - [ ] 解析 `.log` 到 quickfix/location list，而不是只弹出原始日志窗口。
 - [ ] 支持编译当前选区/局部文档。
 - [ ] 编译任务需要 job 状态管理：正在运行、停止、重启、防并发、多 buffer 隔离。
@@ -82,12 +82,10 @@
 ### 高优先级
 
 - [ ] 给 `compile` 模块加任务状态，避免同一 buffer 重复启动多个编译 job。
-- [x] `compile.smart` 里未使用的 `cache`、`log` 已删除，`bcf` 已用于 biber 检测。
-- [x] `compile.smart` 已从 aux 稳定循环改成固定 job pipeline：LaTeX，必要时 BibTeX/Biber，然后 LaTeX 两次。
-- [x] 通用 job 启动和结果展示已放到 `compile.util`；bib/source/artifact 判断保留在自带 `compile.smart` 后端中。
-- [x] 自带 `compile.smart` 后端默认把中间产物写到 `/tmp/nvimtex.nvim/<hash>/`，编译成功后把 PDF 和 SyncTeX 复制回 tex 所在目录。
-- [x] 自带 `compile.smart` 后端成功时显示编译摘要，包含命令链、单步耗时和总耗时，不再 notify 原始日志。
-- [ ] `compile.smart` 需要把 `opts.path` 对应的 buffer/source 分开；当前 TODO 已指出 source 默认当前 buffer。
+- [x] 默认后端 `compile.latexmk` 只管理引擎选择、调用、构建目录和成功产物发布。
+- [x] 移除自带辅助文件比较、参考文献扫描、`.bib` 复制和多阶段任务流水线。
+- [x] `opts.path` 对应文件独立用于引擎推断，不依赖当前 buffer。
+- [x] 编译摘要显示 latexmk、选定引擎和总耗时。
 - [ ] `util.get_documentclass()`、`get_packages()` 应处理 parser 不存在或 parse 失败，不应直接索引 `trees()[1]`。
 - [ ] `parser.iter_children()` 使用 pool 但没有归还 parser；要么实现归还和状态清理，要么删除 pool。
 - [ ] `parser.iter_children()` 在 node 为 nil 时仍进入 consumer，需要系统性测试 EOF/residual 行为。
@@ -106,7 +104,7 @@
 - [ ] `conditions.luasnip.in_cmd_arg()` 只匹配字母命令名，`\[`、`\"`、自定义含 `@` 的命令都可能不准。
 - [ ] `view.zathura` 里有 macOS `osascript` 逻辑，Linux 下不适用；应按系统拆分。
 - [ ] `view.sioyek` inverse-search command 拼字符串，文件名含空格/特殊字符时可能失败，需要 shell escaping 或 argv 方式。
-- [ ] `compile.util.showlog()` 用字符串拼 systemlist，路径含空格会失败；应改 list argv 或 `vim.system`。
+- [x] `compile.util.showlog()` 使用 argv 列表，按规范化路径查找构建日志。
 - [ ] `showbelow()` 每次 `require("baleia").setup({})`，应复用实例。
 - [ ] Autocmd 应建 augroup，重复 setup 时先 clear，避免重复事件。
 
@@ -115,7 +113,7 @@
 - [ ] 建立最小 busted/plenary.nvim test 或 headless nvim test runner。
 - [ ] parser/LNode：覆盖 generic command 参数消费、optional arg、word 拆分、residual、ifmmode。
 - [ ] conceal：覆盖 `\frac`、`\sqrt`、`\not`、style command、新命令解析开关。
-- [x] compile：已有 headless nvim 测试覆盖 smart 后端 compiler 识别、bib backend 识别、编译次数、bibtex/biber 顺序、禁用 bib、artifact fallback、输出复制，并包含真实 TeX fixture。
+- [x] compile：覆盖引擎选择、latexmk 调用、失败保留旧 PDF、三种真实引擎、目录多轮收敛、参考文献增量构建、PGF 失败与项目过滤规则。
 - [ ] compile：继续覆盖 root file、失败路径、index/glossary、多文件 include。
 - [ ] view：mock executable/spawn，覆盖不存在 viewer、root file、single spawn。
 - [ ] textobject/surround：用 fixture tex 验证 range 和替换结果。

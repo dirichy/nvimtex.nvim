@@ -1,26 +1,17 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-local tmp_root = "/tmp/nvimtex.nvim-tests"
-vim.fn.delete(tmp_root, "rf")
-vim.fn.mkdir(tmp_root, "p")
-
-local active_case
-local commands
-local notifications
-local smart = require("nvimtex.compile.smart")
-
+local latexmk = require("nvimtex.compile.latexmk")
+local compile = require("nvimtex.compile")
+local compile_util = require("nvimtex.compile.util")
+local root = vim.fn.tempname() .. " compile tests"
+vim.fn.mkdir(root, "p")
+local calls, notifications, errors = {}, {}, {}
+local exit_code = 0
 vim.notify = function(message)
-	table.insert(notifications, message)
+	notifications[#notifications + 1] = message
 end
-
-local function output_dir(args)
-	for _, arg in ipairs(args or {}) do
-		local dir = arg:match("^%-output%-directory=(.*)$")
-		if dir then
-			return dir
-		end
-	end
-	error("missing -output-directory")
+compile_util.showbelow = function(lines)
+	errors[#errors + 1] = lines
 end
 
 package.preload["plenary.job"] = function()
@@ -28,30 +19,12 @@ package.preload["plenary.job"] = function()
 		new = function(_, spec)
 			return {
 				start = function()
-					table.insert(commands, {
-						command = spec.command,
-						cwd = spec.cwd,
-						args = vim.deepcopy(spec.args or {}),
-					})
-
-					if spec.command == "pdflatex" then
-						local dir = output_dir(spec.args)
-						vim.fn.mkdir(dir, "p")
-						vim.fn.writefile(active_case.new_aux or {}, dir .. "/" .. active_case.jobname .. ".aux")
-						vim.fn.writefile(active_case.new_bcf or {}, dir .. "/" .. active_case.jobname .. ".bcf")
-						vim.fn.writefile({ "%PDF" }, dir .. "/" .. active_case.jobname .. ".pdf")
-						vim.fn.writefile({ "SyncTeX" }, dir .. "/" .. active_case.jobname .. ".synctex.gz")
-					elseif spec.command == "bibtex" or spec.command == "biber" or spec.command == "mybibtex" then
-						vim.fn.writefile({ "\\entry{knuth}" }, spec.cwd .. "/" .. active_case.jobname .. ".bbl")
-					else
-						error("unexpected command: " .. spec.command)
-					end
-
+					calls[#calls + 1] = spec
 					spec.on_exit({
 						result = function()
-							return {}
+							return { "latexmk output" }
 						end,
-					}, 0)
+					}, exit_code)
 				end,
 			}
 		end,
@@ -59,271 +32,80 @@ package.preload["plenary.job"] = function()
 end
 
 local function eq(actual, expected, label)
-	if not vim.deep_equal(actual, expected) then
-		error(string.format("%s: expected %s, got %s", label, vim.inspect(expected), vim.inspect(actual)))
-	end
+	assert(vim.deep_equal(actual, expected), label .. ": " .. vim.inspect(actual))
 end
 
-local function command_names()
-	local result = {}
-	for _, item in ipairs(commands) do
-		table.insert(result, item.command)
-	end
-	return result
-end
+local path = root .. "/a document.tex"
+vim.fn.writefile({ "% !TeX program = xelatex", "\\documentclass{article}" }, path)
+latexmk.setup({ build_root = root .. "/build", args = { "-synctex=1" } })
+local ctx = latexmk.compile_context({ path = path })
+eq(ctx.engine, "xelatex", "opts.path determines engine even when another buffer is current")
+eq(ctx.command, "latexmk", "default executable")
+eq(ctx.cwd, root, "source working directory")
+eq(ctx.jobname, "a document", "source jobname")
+eq(ctx.args, { "-xelatex", "-synctex=1", "-outdir=" .. ctx.build_dir, path }, "arguments preserve spaces")
 
-local function assert_summary(case)
-	local summary = notifications[#notifications]
-	if type(summary) ~= "string" then
-		error(case.name .. ": missing summary notification")
-	end
-	if not summary:find("nvimtex compile succeeded", 1, true) then
-		error(case.name .. ": summary missing status")
-	end
-	if not summary:find("chain: " .. table.concat(case.expected, " -> "), 1, true) then
-		error(case.name .. ": summary missing command chain: " .. summary)
-	end
-	if not summary:find("total:", 1, true) then
-		error(case.name .. ": summary missing total time")
-	end
-	for index, command in ipairs(case.expected) do
-		if not summary:find(index .. ". " .. command, 1, true) then
-			error(case.name .. ": summary missing step " .. index .. ": " .. summary)
-		end
-	end
-end
+-- A loaded target buffer is parsed without depending on a running highlighter.
+local buf = vim.fn.bufadd(path)
+vim.fn.bufload(buf)
+vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "\\documentclass{article}", "\\usepackage{luacode}" })
+eq(latexmk.compile_context({ path = path }).engine, "lualatex", "loaded target source")
+local explicit = latexmk.compile_context({
+	path = path,
+	engine = "pdflatex",
+	executable = "my-latexmk",
+	args = { "-r", root .. "/custom rules.rc" },
+})
+eq(explicit.args[1], "-pdf", "explicit engine overrides source hints")
+eq(explicit.command, "my-latexmk", "custom executable")
+eq(explicit.args[2], "-r", "latexmk rc argument")
+eq(explicit.args[3], root .. "/custom rules.rc", "rc path preserves spaces")
+eq(latexmk.config.args, { "-synctex=1" }, "building arguments does not mutate config")
 
-local function run_case(case)
-	active_case = case
-	commands = {}
-	notifications = {}
-
-	local root = tmp_root .. "/" .. case.name
-	local build_root = root .. "/build"
-	local path = root .. "/" .. case.jobname .. ".tex"
-	local build_dir = vim.fs.normalize(build_root .. "/" .. vim.fn.sha256(path))
-
-	vim.fn.mkdir(root, "p")
-	vim.fn.mkdir(build_dir, "p")
-	vim.fn.writefile(vim.split(case.source, "\n", { plain = true }), path)
-	for name, lines in pairs(case.files or {}) do
-		vim.fn.writefile(lines, root .. "/" .. name)
-	end
-	if case.old_aux then
-		vim.fn.writefile(case.old_aux, build_dir .. "/" .. case.jobname .. ".aux")
-	end
-	if case.old_bcf then
-		vim.fn.writefile(case.old_bcf, build_dir .. "/" .. case.jobname .. ".bcf")
-	end
-	if case.old_bbl then
-		vim.fn.writefile(case.old_bbl, build_dir .. "/" .. case.jobname .. ".bbl")
-	end
-	if case.old_bbl_mtime then
-		vim.uv.fs_utime(build_dir .. "/" .. case.jobname .. ".bbl", case.old_bbl_mtime, case.old_bbl_mtime)
-	end
-
-	local old_config = vim.deepcopy(smart.config)
-	if case.config then
-		smart.setup(case.config)
-	end
-
-	smart.compile({
-		source = case.source,
-		path = path,
-		command = "pdflatex",
-		build_root = build_root,
-		bib = case.bib,
-	})
-
+-- Only successful latexmk builds publish results. A failed build may leave
+-- partial artifacts in its build directory, but must preserve the previous PDF.
+vim.fn.writefile({ "new PDF" }, ctx.build_dir .. "/a document.pdf")
+vim.fn.writefile({ "new SyncTeX" }, ctx.build_dir .. "/a document.synctex.gz")
+compile({ path = path })
+assert(
 	vim.wait(1000, function()
-		return #commands >= #case.expected
-			and vim.uv.fs_stat(root .. "/" .. case.jobname .. ".pdf") ~= nil
-			and vim.uv.fs_stat(root .. "/" .. case.jobname .. ".synctex.gz") ~= nil
-			and #notifications > 0
-	end)
+		return #notifications == 1
+	end),
+	"success callback"
+)
+eq(#calls, 1, "one latexmk invocation")
+eq(vim.fn.readfile(root .. "/a document.pdf"), { "new PDF" }, "published PDF")
+eq(vim.fn.readfile(root .. "/a document.synctex.gz"), { "new SyncTeX" }, "published SyncTeX")
+assert(notifications[1]:find("latexmk (lualatex)", 1, true), "summary identifies latexmk and engine")
 
-	eq(command_names(), case.expected, case.name .. " command sequence")
-	assert_summary(case)
-	if case.expected_bib_cwd then
-		eq(commands[2].cwd, build_dir, case.name .. " bib cwd")
-		eq(commands[2].args[1], case.jobname, case.name .. " bib jobname")
-	end
-	if not vim.uv.fs_stat(root .. "/" .. case.jobname .. ".pdf") then
-		error(case.name .. ": pdf was not copied to source dir")
-	end
-	if not vim.uv.fs_stat(root .. "/" .. case.jobname .. ".synctex.gz") then
-		error(case.name .. ": synctex was not copied to source dir")
-	end
-	for _, ext in ipairs({ "aux", "log", "bbl", "bcf", "blg" }) do
-		if vim.uv.fs_stat(root .. "/" .. case.jobname .. "." .. ext) then
-			error(case.name .. ": ." .. ext .. " leaked into source dir")
-		end
-	end
-	smart.config = old_config
+exit_code = 12
+vim.fn.writefile({ "partial PDF" }, ctx.build_dir .. "/a document.pdf")
+compile.default({ path = path })
+assert(
+	vim.wait(1000, function()
+		return #errors == 1
+	end),
+	"failure callback"
+)
+eq(#notifications, 1, "failed build has no success notification")
+eq(vim.fn.readfile(root .. "/a document.pdf"), { "new PDF" }, "failed build preserves published PDF")
+eq(errors[1], { "latexmk output" }, "failure shows latexmk output")
+
+exit_code = 0
+compile.default({ path = root .. "/missing-output.tex", source = "\\documentclass{article}" })
+assert(
+	vim.wait(1000, function()
+		return #notifications == 2
+	end),
+	"missing PDF callback"
+)
+assert(notifications[2]:find("without the expected PDF", 1, true), "missing PDF must not report success")
+
+-- The public log entry point uses the same build root and canonical file path.
+local shown
+compile_util.showlog = function(log_path, opts)
+	shown = { log_path, opts.build_root }
 end
-
-local cases = {
-	{
-		name = "single_latex_when_aux_is_unchanged",
-		jobname = "main",
-		source = "\\documentclass{article}\n\\begin{document}hello\\end{document}",
-		old_aux = { "\\relax" },
-		new_aux = { "\\relax" },
-		expected = { "pdflatex" },
-	},
-	{
-		name = "second_latex_when_aux_changes_without_bib",
-		jobname = "main",
-		source = "\\documentclass{article}\n\\begin{document}\\ref{x}\\end{document}",
-		old_aux = { "\\relax" },
-		new_aux = { "\\relax", "\\newlabel{x}{{1}{1}}" },
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "pgfsyspdfmark_aux_noise_is_ignored",
-		jobname = "main",
-		source = "\\documentclass{article}\n\\begin{document}tikz\\end{document}",
-		old_aux = { "\\relax", "\\pgfsyspdfmark {pgfid1}{1}{1}" },
-		new_aux = { "\\relax", "\\pgfsyspdfmark {pgfid1}{2}{2}" },
-		expected = { "pdflatex" },
-	},
-	{
-		name = "pgfsyspdfmark_aux_insert_needs_rerun",
-		jobname = "main",
-		source = "\\documentclass{article}\n\\begin{document}tikz\\end{document}",
-		old_aux = { "\\relax" },
-		new_aux = { "\\relax", "\\pgfsyspdfmark {pgfid1}{2}{2}" },
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "custom_bcf_noise_is_ignored",
-		jobname = "main",
-		source = "\\documentclass{article}\n\\begin{document}noise\\end{document}",
-		config = {
-			rerun = {
-				skip = {
-					bcf = { "^<noise" },
-				},
-			},
-		},
-		old_aux = { "\\relax" },
-		new_aux = { "\\relax" },
-		old_bcf = { '<noise value="1" />' },
-		new_bcf = { '<noise value="2" />' },
-		bib = { enabled = false },
-		expected = { "pdflatex" },
-	},
-	{
-		name = "bibtex_runs_between_latex_passes",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}\n\\bibliographystyle{plain}\n\\bibliography{refs}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		expected = { "pdflatex", "bibtex", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-	{
-		name = "biber_runs_for_biblatex",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\usepackage{biblatex}\n\\addbibresource{refs.bib}\n\\printbibliography",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		new_aux = { "\\relax" },
-		new_bcf = { '<bcf:datasource type="file">refs.bib</bcf:datasource>' },
-		expected = { "pdflatex", "biber", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-	{
-		name = "explicit_bibtex_overrides_biber_hints",
-		jobname = "paper",
-		source = "% !TeX bib-program = biber\n\\documentclass{article}\n\\bibliography{refs}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		bib = { backend = "bibtex" },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		expected = { "pdflatex", "bibtex", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-	{
-		name = "disabled_bib_skips_bibliography_backend",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}\n\\bibliography{refs}",
-		bib = { enabled = false },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibdata{refs}" },
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "disabled_bib_bcf_change_runs_only_latex",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\usepackage{biblatex}\n\\addbibresource{refs.bib}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		bib = { enabled = false },
-		old_aux = { "\\relax" },
-		new_aux = { "\\relax" },
-		old_bcf = {},
-		new_bcf = { '<bcf:datasource type="file">refs.bib</bcf:datasource>' },
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "aux_artifact_falls_back_to_bibtex",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		expected = { "pdflatex", "bibtex", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-	{
-		name = "aux_citation_without_bibdata_does_not_run_bibtex",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}",
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}" },
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "bcf_artifact_falls_back_to_biber",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		new_aux = { "\\relax" },
-		new_bcf = { '<bcf:datasource type="file">refs.bib</bcf:datasource>' },
-		expected = { "pdflatex", "biber", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-	{
-		name = "existing_bbl_and_unchanged_control_skip_bib",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}\n\\bibliographystyle{plain}\n\\bibliography{refs}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		old_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		old_bbl = { "\\entry{knuth}" },
-		expected = { "pdflatex" },
-	},
-	{
-		name = "newer_bib_file_reruns_bib",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}\n\\bibliographystyle{plain}\n\\bibliography{refs}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		old_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		old_bbl = { "\\entry{knuth}" },
-		old_bbl_mtime = 1,
-		expected = { "pdflatex", "bibtex", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-	{
-		name = "custom_bibtex_command_is_used",
-		jobname = "paper",
-		source = "\\documentclass{article}\n\\cite{knuth}\n\\bibliographystyle{plain}\n\\bibliography{refs}",
-		files = { ["refs.bib"] = { "@book{knuth,title={T}}" } },
-		bib = { commands = { bibtex = "mybibtex" } },
-		new_aux = { "\\relax", "\\citation{knuth}", "\\bibstyle{plain}", "\\bibdata{refs}" },
-		expected = { "pdflatex", "mybibtex", "pdflatex", "pdflatex" },
-		expected_bib_cwd = true,
-	},
-}
-
-for _, case in ipairs(cases) do
-	run_case(case)
-	print("ok " .. case.name)
-end
-print("")
+compile.showlog(path)
+eq(shown, { path, root .. "/build" }, "public log entry point")
+print("ok latexmk argument, source, publication and failure handling")

@@ -50,7 +50,7 @@ end
 M.get_documentclass = function(source)
 	local root
 	if type(source) == "number" then
-		root = vim.treesitter.get_parser(source, "latex"):trees()[1]:root()
+		root = vim.treesitter.get_parser(source, "latex"):parse()[1]:root()
 	else
 		root = vim.treesitter.get_string_parser(source, "latex"):parse()[1]:root()
 	end

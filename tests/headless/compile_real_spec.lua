@@ -1,37 +1,33 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
-vim.notify = function() end
 
+local latexmk = require("nvimtex.compile.latexmk")
+local compile = require("nvimtex.compile")
+local compile_util = require("nvimtex.compile.util")
 local fixtures = vim.fn.getcwd() .. "/tests/fixtures/compile-real"
-local tmp_root = "/tmp/nvimtex.nvim-real-tests"
-vim.fn.delete(tmp_root, "rf")
+local tmp_root = vim.fn.tempname() .. " real compile tests"
 vim.fn.mkdir(tmp_root, "p")
--- Isolate build outputs, but reuse the installed engine's formats/font cache.
--- Fresh caches force LuaLaTeX to rescan fonts and may violate openout_any rules.
-
-local commands = {}
+-- Keep normal installed formats/font caches; isolate only source and outputs.
+local commands, notices, errors = {}, {}, {}
+vim.notify = function(message)
+	notices[#notices + 1] = message
+end
+compile_util.showbelow = function(lines)
+	errors[#errors + 1] = table.concat(lines, "\n")
+end
 
 package.preload["plenary.job"] = function()
 	return {
 		new = function(_, spec)
 			return {
 				start = function()
-					table.insert(commands, {
-						command = spec.command,
-						cwd = spec.cwd,
-						args = vim.deepcopy(spec.args or {}),
-					})
 					local argv = { spec.command }
-					vim.list_extend(argv, spec.args or {})
-					local result = vim.system(argv, { cwd = spec.cwd, text = true }):wait()
-					local output = {}
-					vim.list_extend(output, vim.split(result.stdout or "", "\n", { plain = true, trimempty = true }))
-					vim.list_extend(output, vim.split(result.stderr or "", "\n", { plain = true, trimempty = true }))
-					if result.code ~= 0 then
-						error(table.concat(output, "\n"))
-					end
+					vim.list_extend(argv, spec.args)
+					local result = vim.system(argv, { cwd = spec.cwd, text = true }):wait(60000)
+					local output = (result.stdout or "") .. (result.stderr or "")
+					commands[#commands + 1] = { spec = spec, output = output, code = result.code }
 					spec.on_exit({
 						result = function()
-							return output
+							return vim.split(output, "\n", { plain = true })
 						end,
 					}, result.code)
 				end,
@@ -40,171 +36,102 @@ package.preload["plenary.job"] = function()
 	}
 end
 
-local function copy_fixture(name)
-	local source = fixtures .. "/" .. name
-	local target = tmp_root .. "/" .. name
+local function copy_fixture(case)
+	local target = tmp_root .. "/" .. case.name
 	vim.fn.mkdir(target, "p")
-	for _, path in ipairs(vim.fn.glob(source .. "/*", false, true)) do
-		local basename = vim.fn.fnamemodify(path, ":t")
-		if not basename:match("%.pdf$") and not basename:match("%.synctex%.gz$") then
-			vim.fn.writefile(vim.fn.readfile(path, "b"), target .. "/" .. basename, "b")
-		end
+	for _, path in ipairs(vim.fn.glob(fixtures .. "/" .. (case.fixture or case.name) .. "/*", false, true)) do
+		local name = vim.fn.fnamemodify(path, ":t")
+		vim.fn.writefile(vim.fn.readfile(path, "b"), target .. "/" .. name, "b")
 	end
 	return target
 end
 
-local function output_dir(args)
-	for _, arg in ipairs(args or {}) do
-		local dir = arg:match("^%-output%-directory=(.*)$")
-		if dir then
-			return dir
-		end
-	end
-	error("missing -output-directory")
-end
-
-local function command_names()
-	local result = {}
-	for _, item in ipairs(commands) do
-		table.insert(result, item.command)
-	end
-	return result
-end
-
-local function eq(actual, expected, label)
-	if not vim.deep_equal(actual, expected) then
-		error(string.format("%s: expected %s, got %s", label, vim.inspect(expected), vim.inspect(actual)))
-	end
-end
-
-local function probe_engine(command)
-	local root = tmp_root .. "/probe-" .. command
-	local build = root .. "/build"
-	vim.fn.mkdir(build, "p")
-	vim.fn.writefile({
-		"\\documentclass{article}",
-		"\\begin{document}",
-		"probe",
-		"\\end{document}",
-	}, root .. "/main.tex")
-	local result = vim.system({
-		command,
-		"-interaction=nonstopmode",
-		"-file-line-error",
-		"-synctex=1",
-		"-output-directory=" .. build,
-		"main",
-	}, { cwd = root, text = true }):wait()
-	if result.code ~= 0 then
-		error(
-			command
-				.. ": engine probe failed; see "
-				.. build
-				.. "/main.log\n"
-				.. (result.stdout or "")
-				.. (result.stderr or "")
-		)
-	end
-end
-
-local function assert_outputs(root, build_dir, name)
-	if not vim.uv.fs_stat(root .. "/main.pdf") then
-		error(name .. ": pdf missing from source dir")
-	end
-	if not vim.uv.fs_stat(root .. "/main.synctex.gz") then
-		error(name .. ": synctex missing from source dir")
-	end
-	if not vim.uv.fs_stat(build_dir .. "/main.aux") then
-		error(name .. ": aux missing from build dir")
-	end
-	if not vim.uv.fs_stat(build_dir .. "/main.log") then
-		error(name .. ": log missing from build dir")
-	end
-	for _, ext in ipairs({ "aux", "log", "bbl", "bcf", "blg" }) do
-		if vim.uv.fs_stat(root .. "/main." .. ext) then
-			error(name .. ": ." .. ext .. " leaked into source dir")
-		end
-	end
+local function build(root, args)
+	commands, notices, errors = {}, {}, {}
+	local configured = vim.deepcopy(latexmk.config.args)
+	vim.list_extend(configured, { "-norc" })
+	vim.list_extend(configured, args or {})
+	local opts = { path = root .. "/main.tex", build_root = root .. "/build", args = configured }
+	compile.default(opts)
+	assert(
+		vim.wait(1000, function()
+			return #notices + #errors > 0
+		end),
+		"compile callback did not finish"
+	)
+	assert(#commands == 1 and commands[1].spec.command == "latexmk", "frontend must invoke latexmk once")
+	return latexmk.compile_context(opts), commands[1].output
 end
 
 local function run_case(case)
-	if vim.fn.executable(case.expected[1]) == 0 then
-		print("skip " .. case.name .. ": missing " .. case.expected[1])
-		return
-	end
-	if case.probe_engine then
-		probe_engine(case.expected[1])
-	end
-	if case.needs and vim.fn.executable(case.needs) == 0 then
-		print("skip " .. case.name .. ": missing " .. case.needs)
-		return
-	end
-
-	commands = {}
-	local root = copy_fixture(case.name)
-	local build_root = root .. "/build"
-	local tex_path = root .. "/main.tex"
-	local source = table.concat(vim.fn.readfile(tex_path), "\n")
-
-	local opts = {
-		source = source,
-		path = tex_path,
-		build_root = build_root,
-	}
-	if case.command then
-		opts.command = case.command
-	end
-	require("nvimtex.compile.smart").compile(opts)
-
-	vim.wait(15000, function()
-		return #commands >= #case.expected and vim.uv.fs_stat(root .. "/main.pdf") ~= nil
-	end)
-
-	eq(command_names(), case.expected, case.name .. " command sequence")
-	local build_dir = output_dir(commands[1].args)
-	assert_outputs(root, build_dir, case.name)
-	if case.expected_bib then
-		eq(commands[2].cwd, build_dir, case.name .. " bibliography cwd")
-		eq(commands[2].args[1], "main", case.name .. " bibliography jobname")
-		if not vim.uv.fs_stat(build_dir .. "/main.bbl") then
-			error(case.name .. ": bbl missing from build dir")
+	for _, executable in ipairs({ "latexmk", case.engine or "pdflatex", case.needs }) do
+		if vim.fn.executable(executable) == 0 then
+			print("skip " .. case.name .. ": missing " .. executable)
+			return
 		end
 	end
-	print("ok real " .. case.name)
+	local root = copy_fixture(case)
+	if case.failure then
+		vim.fn.writefile({ "previous PDF" }, root .. "/main.pdf")
+	end
+	local ctx, output = build(root, case.args)
+	if case.failure then
+		assert(#notices == 0 and #errors == 1, "unstable PGF build must fail without a success notification")
+		assert(output:find("too many passes", 1, true), output)
+		assert(
+			vim.deep_equal(vim.fn.readfile(root .. "/main.pdf"), { "previous PDF" }),
+			"failed real build overwrote previous PDF"
+		)
+	else
+		assert(#errors == 0, table.concat(errors, "\n"))
+		assert(vim.uv.fs_stat(root .. "/main.pdf"), case.name .. ": missing PDF")
+		assert(vim.uv.fs_stat(root .. "/main.synctex.gz"), case.name .. ": missing SyncTeX")
+		local log = table.concat(vim.fn.readfile(ctx.build_dir .. "/main.log"), "\n")
+		assert(not log:find("There were undefined references", 1, true), log)
+		if case.minimum_runs then
+			local runs = 0
+			for _ in output:gmatch("Run number %d+ of rule 'pdflatex'") do
+				runs = runs + 1
+			end
+			assert(runs >= case.minimum_runs, "TOC fixture must exercise more than two LaTeX passes: " .. output)
+			assert(not log:find("Label(s) may have changed", 1, true), "TOC did not converge")
+		end
+		for _, ext in ipairs({ "aux", "log", "bbl", "bcf", "blg", "fls", "fdb_latexmk", "xdv" }) do
+			assert(not vim.uv.fs_stat(root .. "/main." .. ext), case.name .. ": leaked ." .. ext)
+		end
+		if case.needs then
+			local bbl = ctx.build_dir .. "/main.bbl"
+			assert(vim.uv.fs_stat(bbl), case.name .. ": bibliography was not built")
+			-- latexmk must find .bib files in the source directory without copying
+			-- them into the build directory, including on a later incremental build.
+			assert(not vim.uv.fs_stat(ctx.build_dir .. "/refs.bib"), "frontend copied bibliography sources")
+			local refs = table.concat(vim.fn.readfile(root .. "/refs.bib"), "\n")
+			refs = refs:gsub("The TeXbook", "An Updated Reference Title")
+			vim.fn.writefile(vim.split(refs, "\n", { plain = true }), root .. "/refs.bib")
+			build(root)
+			assert(#errors == 0, table.concat(errors, "\n"))
+			assert(
+				table.concat(vim.fn.readfile(bbl), "\n"):find("Updated", 1, true),
+				"edited bibliography was not rebuilt"
+			)
+		end
+		local _, unchanged = build(root, case.args)
+		assert(#errors == 0, table.concat(errors, "\n"))
+		assert(unchanged:find("Nothing to do", 1, true), "unchanged project was not reused: " .. unchanged)
+	end
+	print("ok real latexmk " .. case.name)
 end
 
-local cases = {
-	{
-		name = "simple",
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "magic-xelatex",
-		expected = { "xelatex", "xelatex" },
-	},
-	{
-		name = "magic-lualatex",
-		expected = { "lualatex", "lualatex" },
-		probe_engine = true,
-	},
-	{
-		name = "rerun-label",
-		expected = { "pdflatex", "pdflatex" },
-	},
-	{
-		name = "bibtex",
-		expected = { "pdflatex", "bibtex", "pdflatex", "pdflatex" },
-		needs = "bibtex",
-		expected_bib = true,
-	},
-	{
-		name = "biber",
-		expected = { "pdflatex", "biber", "pdflatex", "pdflatex" },
-		needs = "biber",
-		expected_bib = true,
-	},
-}
-
-for _, case in ipairs(cases) do
+for _, case in ipairs({
+	{ name = "simple" },
+	{ name = "magic-xelatex", engine = "xelatex" },
+	{ name = "magic-lualatex", engine = "lualatex" },
+	{ name = "rerun-label" },
+	{ name = "toc", minimum_runs = 3 },
+	{ name = "bibtex", needs = "bibtex" },
+	{ name = "biber", needs = "biber" },
+	{ name = "pgf-drift", engine = "xelatex", failure = true, args = { "-e", "$max_repeat=3;" } },
+	{ name = "pgf-filter", fixture = "pgf-drift", engine = "xelatex", args = { "-r", "ignore-pgf.rc" } },
+}) do
 	run_case(case)
 end

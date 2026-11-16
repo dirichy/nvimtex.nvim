@@ -1,0 +1,13 @@
+\documentclass{article}
+\begin{document}
+\tableofcontents
+The last section is on page~\pageref{section:45}.
+\newcount\sectionnumber
+\sectionnumber=1
+\loop\ifnum\sectionnumber<46
+  \section{A representative section number \the\sectionnumber}
+  \label{section:\the\sectionnumber}
+  This section contributes an entry to the table of contents.
+  \advance\sectionnumber by 1
+\repeat
+\end{document}

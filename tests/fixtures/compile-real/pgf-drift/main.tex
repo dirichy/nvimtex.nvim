@@ -1,0 +1,13 @@
+% !TeX program = xelatex
+\documentclass{article}
+\usepackage{tikz}
+\usepackage[placement=bottom,scale=1,opacity=1]{background}
+% Deliberately reproduces a bounding-box feedback loop. No default ignore rule
+% should hide it; projects can opt in to ignore-pgf.rc or fix the drawing.
+\backgroundsetup{contents={%
+  \begin{tikzpicture}
+    \fill[yellow] (current page.south west) rectangle (current page.north east);
+  \end{tikzpicture}}}
+\begin{document}
+Background position regression.
+\end{document}

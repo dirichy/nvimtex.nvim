@@ -160,30 +160,41 @@ keyflow 默认关闭，设为 `true` 后才加载并启用连续操作；请移�
 模式注册。详见[中英文说明](docs/math-conversion.md)。
 
 ## compiling
-1. support smartly guess compiler for the `tex` file by
+
+Install `latexmk` and your TeX engines, save the document, then run:
+
 ```lua
 require("nvimtex.compile").default()
 ```
-2. support smartly guess how many turns need to run. 
-3. support BibTeX/Biber in the builtin backend. It detects `biblatex`, BibTeX-style bibliography commands, and LaTeX-generated `.bcf`/`.aux` control files, runs the bibliography backend when needed, then reruns LaTeX.
-   The backend is guessed from, in order: explicit config, TeX magic comments such as `% !TeX bib-program = biber`, explicit `biblatex` package backend option, bibliography-related packages, source commands such as `\addbibresource` or `\bibliography`, then LaTeX output artifacts.
-4. builtin compile backend writes intermediate files to `/tmp/nvimtex.nvim/<hash>/` by default, then copies the final PDF and SyncTeX file back to the tex file directory.
-5. successful builtin compiles notify a short summary with the command chain, per-step time, and total time.
+
+The default backend calls latexmk once. Latexmk handles reruns, BibTeX/Biber,
+indexes, dependencies, and project `.latexmkrc` rules. nvimtex selects the engine
+from TeX magic comments, packages, document class, and the configured preference
+order; set `engine` to override detection.
+
 ```lua
 require("nvimtex").setup({
   compile = {
+    -- engine = "lualatex", -- optional; default: automatic selection
+    executable = "latexmk",
     build_root = "/tmp/nvimtex.nvim",
-    bib = {
-      enabled = true,
-      backend = "auto", -- "auto", "bibtex", or "biber"
-      commands = {
-        bibtex = "bibtex",
-        biber = "biber",
-      },
-    },
   },
 })
 ```
+
+Intermediate files stay in a per-document directory under `build_root`. After a
+successful build, the PDF and available SyncTeX file are copied beside the source.
+Failed builds preserve the previous published files. The notification reports
+latexmk's total elapsed time; `require("nvimtex.compile").showlog()` opens the TeX
+log. `require("nvimtex.compile").arara()` remains available as an explicit backend.
+See [compilation configuration and migration](docs/compilation.md).
+
+中文：默认后端调用 latexmk，由它管理重编译、参考文献、索引、依赖和项目
+`.latexmkrc`。nvimtex 保留引擎自动选择，也可用 `compile.engine` 指定。
+请安装 latexmk 和所需 TeX 引擎，并先保存文档。中间产物保存在临时构建目录；
+只有编译成功后才复制 PDF 和 SyncTeX，失败时保留上次发布的结果。
+自带的轮数判断、参考文献调度和默认 PGF 忽略规则已移除；旧配置迁移见
+[中英文说明](docs/compilation.md)。
 
 ## snippet
 I provided many snippets to use, in the `luasnippets` folder, but for now they are not documetationed. 
@@ -202,6 +213,7 @@ you can use `lazy.nvim` or other manager to install this plugin.
 		dependencies = {
 			"nvim-treesitter/nvim-treesitter",
 			"m00qek/baleia.nvim",
+			"nvim-lua/plenary.nvim", -- compilation jobs
 		},
 		keys = {
 			{
@@ -252,15 +264,18 @@ after `filetype_extend("markdown", { "tex" })`.
 ```sh
 sh tests/run_headless.sh
 ```
-This runs smart backend strategy tests, mocked compile pipeline tests, and real
-TeX fixture tests. Missing executables skip their cases; installed engines that
-fail to compile cause a test failure with the compiler output. Build outputs go
-to `/tmp`, while engine formats and font caches use your normal TeX configuration
-so each run does not rebuild the font database.
+This runs parser/conceal and editing regressions, engine-selection and compile
+adapter tests, and real latexmk builds. Real cases cover all three engines,
+references, a table of contents requiring more than two passes, BibTeX/Biber,
+incremental bibliography updates, and explicit project rules for unstable PGF
+marks. Missing executables skip their cases; installed tools that fail cause a
+test failure. Build outputs go to `/tmp`, while formats and font caches use your
+normal TeX configuration.
 
-测试包含编译策略、模拟编译流程和真实 TeX 用例。缺少可执行文件时跳过对应用例；
-已安装的引擎编译失败则报错并显示日志。编译产物放在 `/tmp`，格式文件和字体缓存
-沿用正常 TeX 配置，不在每次运行时重建字体数据库。
+测试包含解析、显示和编辑回归，以及引擎识别、编译适配和真实 latexmk 构建。
+真实用例覆盖三种引擎、引用、超过两轮的目录收敛、参考文献增量更新及 PGF
+项目规则。缺少可执行文件时跳过对应用例；已安装工具失败则报错。
+编译产物放在 `/tmp`，字体缓存沿用正常 TeX 配置，不在每次测试时重建。
 
 Run just the parser and conceal regression suite with:
 ```sh
