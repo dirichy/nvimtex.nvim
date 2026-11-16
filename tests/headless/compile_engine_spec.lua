@@ -37,7 +37,6 @@ end
 
 latexmk.setup({
 	favor = { "pdflatex", "xelatex", "lualatex" },
-	build_root = tmp_root .. "/configured-build",
 })
 
 compiler("% !TeX TS-program = xelatex\n\\documentclass{article}", "xelatex", "magic_ts_program")

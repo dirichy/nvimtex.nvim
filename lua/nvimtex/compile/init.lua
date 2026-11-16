@@ -22,14 +22,14 @@ function M.default(opts)
 	return require("nvimtex.compile.latexmk").compile(opts)
 end
 
----Open the compile log for the current TeX file.
----@param path? string TeX file path. Defaults to the current buffer path.
+---Open a TeX log; pass a .log path for custom output directories/jobnames.
+---@param path? string TeX or log file path. Defaults to the declared main file.
 ---@return nil
 function M.showlog(path)
-	local latexmk = require("nvimtex.compile.latexmk")
 	path = path or require("nvimtex.util").main_file()
-	return require("nvimtex.compile.util").showlog(path, { build_root = latexmk.config.build_root })
+	return require("nvimtex.compile.util").showlog(path)
 end
+
 setmetatable(M, {
 	__call = function(_, opts)
 		return M.default(opts)

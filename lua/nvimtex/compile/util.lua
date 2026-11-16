@@ -51,16 +51,10 @@ function M.run_job(command, cwd, args, on_success)
 end
 
 ---Open a filtered TeX log below the current window.
----@param path? string TeX source path. Defaults to the current buffer.
----@param opts? { build_root?: string }
-function M.showlog(path, opts)
-	opts = opts or {}
+---@param path? string TeX or log path. Defaults to the current buffer's sibling log.
+function M.showlog(path)
 	path = vim.fs.normalize(vim.fn.fnamemodify(path or vim.fn.expand("%:p"), ":p"))
-	local jobname = vim.fn.fnamemodify(path, ":t:r")
-	local cwd = vim.fn.fnamemodify(path, ":h")
-	local build_root = opts.build_root or (vim.env.TMPDIR or "/tmp") .. "/nvimtex.nvim"
-	local build_log = vim.fs.normalize(build_root .. "/" .. vim.fn.sha256(path) .. "/" .. jobname .. ".log")
-	local log_path = vim.uv.fs_stat(build_log) and build_log or cwd .. "/" .. jobname .. ".log"
+	local log_path = path:match("%.log$") and path or vim.fn.fnamemodify(path, ":r") .. ".log"
 	local lines = vim.fn.systemlist({ "texlogsieve", log_path, "--color" })
 	M.showbelow(lines)
 end

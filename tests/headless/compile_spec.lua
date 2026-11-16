@@ -37,13 +37,12 @@ end
 
 local path = root .. "/a document.tex"
 vim.fn.writefile({ "% !TeX program = xelatex", "\\documentclass{article}" }, path)
-latexmk.setup({ build_root = root .. "/build", args = { "-synctex=1" } })
+latexmk.setup({ args = { "-synctex=1" } })
 local ctx = latexmk.compile_context({ path = path })
 eq(ctx.engine, "xelatex", "opts.path determines engine even when another buffer is current")
 eq(ctx.command, "latexmk", "default executable")
 eq(ctx.cwd, root, "source working directory")
-eq(ctx.jobname, "a document", "source jobname")
-eq(ctx.args, { "-xelatex", "-synctex=1", "-outdir=" .. ctx.build_dir, path }, "arguments preserve spaces")
+eq(ctx.args, { "-xelatex", "-synctex=1", path }, "arguments preserve spaces")
 
 -- A loaded target buffer is parsed without depending on a running highlighter.
 local buf = vim.fn.bufadd(path)
@@ -62,10 +61,8 @@ eq(explicit.args[2], "-r", "latexmk rc argument")
 eq(explicit.args[3], root .. "/custom rules.rc", "rc path preserves spaces")
 eq(latexmk.config.args, { "-synctex=1" }, "building arguments does not mutate config")
 
--- Only successful latexmk builds publish results. A failed build may leave
--- partial artifacts in its build directory, but must preserve the previous PDF.
-vim.fn.writefile({ "new PDF" }, ctx.build_dir .. "/a document.pdf")
-vim.fn.writefile({ "new SyncTeX" }, ctx.build_dir .. "/a document.synctex.gz")
+-- The adapter reports the exit status without assuming output paths or copying
+-- artifacts: latexmk may use a custom jobname or output format in its rc file.
 compile({ path = path })
 assert(
 	vim.wait(1000, function()
@@ -74,12 +71,8 @@ assert(
 	"success callback"
 )
 eq(#calls, 1, "one latexmk invocation")
-eq(vim.fn.readfile(root .. "/a document.pdf"), { "new PDF" }, "published PDF")
-eq(vim.fn.readfile(root .. "/a document.synctex.gz"), { "new SyncTeX" }, "published SyncTeX")
 assert(notifications[1]:find("latexmk (lualatex)", 1, true), "summary identifies latexmk and engine")
-
 exit_code = 12
-vim.fn.writefile({ "partial PDF" }, ctx.build_dir .. "/a document.pdf")
 compile.default({ path = path })
 assert(
 	vim.wait(1000, function()
@@ -88,26 +81,33 @@ assert(
 	"failure callback"
 )
 eq(#notifications, 1, "failed build has no success notification")
-eq(vim.fn.readfile(root .. "/a document.pdf"), { "new PDF" }, "failed build preserves published PDF")
 eq(errors[1], { "latexmk output" }, "failure shows latexmk output")
 
-exit_code = 0
-compile.default({ path = root .. "/missing-output.tex", source = "\\documentclass{article}" })
-assert(
-	vim.wait(1000, function()
-		return #notifications == 2
-	end),
-	"missing PDF callback"
+local custom = latexmk.compile_context({ path = path, args = { "-outdir=build", "-auxdir=aux", "-jobname=custom" } })
+eq(
+	custom.args,
+	{ "-lualatex", "-outdir=build", "-auxdir=aux", "-jobname=custom", path },
+	"user output options are passed without overrides"
 )
-assert(notifications[2]:find("without the expected PDF", 1, true), "missing PDF must not report success")
 
--- The public log entry point uses the same build root and canonical file path.
 local shown
-compile_util.showlog = function(log_path, opts)
-	shown = { log_path, opts.build_root }
+local systemlist = vim.fn.systemlist
+vim.fn.systemlist = function(argv)
+	shown = argv
+	return { "filtered log" }
 end
 compile.showlog(path)
-eq(shown, { path, root .. "/build" }, "public log entry point")
+eq(shown, { "texlogsieve", root .. "/a document.log", "--color" }, "default sibling log")
+compile.showlog(root .. "/custom output/renamed.log")
+eq(shown, { "texlogsieve", root .. "/custom output/renamed.log", "--color" }, "custom log path")
+vim.fn.systemlist = systemlist
+compile_util.showlog = function(log_path)
+	shown = log_path
+end
+compile.showlog(path)
+eq(shown, path, "public log entry point")
+compile.showlog(root .. "/custom output/custom.log")
+eq(shown, root .. "/custom output/custom.log", "explicit log entry point")
 
 local util = require("nvimtex.util")
 local main = root .. "/main document.tex"
@@ -125,9 +125,8 @@ eq(util.main_file(), main, "root comment precedes subfiles")
 local project = latexmk.compile_context()
 eq(project.path, main, "default compile follows root declaration")
 eq(project.engine, "xelatex", "engine comes from main document")
-eq(project.build_dir, latexmk.compile_context({ path = main }).build_dir, "main and child share build directory")
 compile.showlog()
-eq(shown[1], main, "default log follows main document")
+eq(shown, main, "default log follows main document")
 
 source("\\documentclass[../main document.tex]{subfiles}")
 eq(util.main_file(), main, "subfiles relative main path")
@@ -153,4 +152,4 @@ end
 vim.fn.writefile({ "% !TeX root = chapters/chapter.tex", "\\documentclass{article}" }, main)
 source("% !TeX root = ../main document.tex")
 eq(latexmk.compile_context().path, main, "declared target is not recursively redirected")
-print("ok latexmk argument, source, publication and failure handling")
+print("ok latexmk argument, source, output options and failure handling")

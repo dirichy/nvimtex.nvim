@@ -21,7 +21,7 @@
 - [ ] 解析 `.log` 到 quickfix/location list，而不是只弹出原始日志窗口。
 - [ ] 支持编译当前选区/局部文档。
 - [ ] 编译任务需要 job 状态管理：正在运行、停止、重启、防并发、多 buffer 隔离。
-- [ ] 编译命令应支持 root file、多文件项目、jobname、outdir、auxdir、自定义参数。
+- [x] 编译支持显式主文件声明；jobname、outdir、auxdir 由 latexmk 原生参数或项目 rc 配置。
 - [ ] `showlog()` 应检测 `texlogsieve` 是否存在；不存在时 fallback 到原始 `.log`。
 
 ### PDF 查看器与 SyncTeX
@@ -82,7 +82,7 @@
 ### 高优先级
 
 - [ ] 给 `compile` 模块加任务状态，避免同一 buffer 重复启动多个编译 job。
-- [x] 默认后端 `compile.latexmk` 只管理引擎选择、调用、构建目录和成功产物发布。
+- [x] 默认后端 `compile.latexmk` 只管理引擎选择、调用和耗时通知；产物位置与生命周期交给 latexmk。
 - [x] 移除自带辅助文件比较、参考文献扫描、`.bib` 复制和多阶段任务流水线。
 - [x] `opts.path` 对应文件独立用于引擎推断，不依赖当前 buffer。
 - [x] 编译摘要显示 latexmk、选定引擎和总耗时。
@@ -113,7 +113,7 @@
 - [ ] 建立最小 busted/plenary.nvim test 或 headless nvim test runner。
 - [ ] parser/LNode：覆盖 generic command 参数消费、optional arg、word 拆分、residual、ifmmode。
 - [ ] conceal：覆盖 `\frac`、`\sqrt`、`\not`、style command、新命令解析开关。
-- [x] compile：覆盖引擎选择、latexmk 调用、失败保留旧 PDF、三种真实引擎、目录多轮收敛、参考文献增量构建、PGF 失败与项目过滤规则。
+- [x] compile：覆盖引擎选择、latexmk 调用、失败反馈、三种真实引擎、目录多轮收敛、参考文献增量构建、PGF 失败与项目过滤规则。
 - [ ] compile：继续覆盖 root file、失败路径、index/glossary、多文件 include。
 - [ ] view：mock executable/spawn，覆盖不存在 viewer、root file、single spawn。
 - [ ] textobject/surround：用 fixture tex 验证 range 和替换结果。

@@ -19,7 +19,6 @@ require("nvimtex").setup({
     executable = "latexmk",
     -- engine = "lualatex", -- omit for automatic selection / 省略则自动选择
     favor = { "pdflatex", "xelatex", "lualatex" },
-    build_root = "/tmp/nvimtex.nvim",
     args = {
       "-interaction=nonstopmode",
       "-halt-on-error",
@@ -48,14 +47,13 @@ a parse. Existing custom `detection.documentclasses`,
 `args` replaces the default argument list; retain `-synctex=1` if you need PDF
 search. Native latexmk flags such as `-r project.rc`, `-bibtex-`, or `-e` expressions
 can be supplied as separate argv entries. Use `engine` to choose the engine.
-The adapter manages output paths and expects the source basename as jobname;
-do not change `-outdir`, `-auxdir`, or `-jobname` through args/rc. A project rc's
+Output locations, jobnames, and output formats are left to latexmk. A project rc's
 engine default can be overridden by the adapter's explicit engine flag.
 
 `args` 整体替换默认参数列表；需要 PDF 搜索时请保留 `-synctex=1`。
 latexmk 原生选项及其参数应分别放在 argv 列表中。引擎通过 `engine` 设置。
-构建路径和产物名由适配层管理，请勿在 args/rc 中修改 `-outdir`、`-auxdir` 或
-`-jobname`。适配层传入的引擎选项可能覆盖项目 rc 中的默认引擎设置。
+可在 args/rc 中设置 `-outdir`、`-auxdir` 和 `-jobname`；插件不覆盖产物位置、
+名称或格式。适配层传入的引擎选项可能覆盖项目 rc 中的默认引擎设置。
 
 ## Calls and outputs / 调用与产物
 
@@ -67,13 +65,13 @@ compile.showlog() -- main document’s TeX log / 主文件的 TeX 日志
 compile.arara()   -- explicit alternative / 显式选择 arara
 ```
 
-`default()` also accepts per-call `executable`, `args`, and `build_root` overrides.
+`default()` also accepts per-call `executable` and `args` overrides.
 An optional `source` (buffer number or TeX string) affects engine detection only;
 latexmk always compiles the saved file. With `path` alone, detection uses that
 file's loaded buffer or reads it from disk, independently of the current buffer.
 An explicit `path` is the exact target and bypasses declarations in the current file.
 
-`default()` 可逐次覆盖 `executable`、`args` 和 `build_root`。可选 `source`
+`default()` 可逐次覆盖 `executable` 和 `args`。可选 `source`
 （buffer 编号或 TeX 字符串）只用于引擎识别；实际编译读取磁盘上的文件。
 只传 `path` 时使用目标文件已加载的 buffer 或磁盘内容，不误用当前 buffer。
 显式 `path` 直接指定编译目标，不受当前文件声明影响。
@@ -106,8 +104,7 @@ A declared path must name an existing readable file; an empty root or malformed
 
 Declarations select one target, without recursively following that target's own
 root/subfiles declaration. Engine detection then reads the selected main file
-(unless `source` explicitly overrides it). A main file and its children share the
-same build directory. Default log lookup, arara, and PDF viewers use the same
+(unless `source` explicitly overrides it). Default log lookup, arara, and PDF viewers use the same
 selection rule; Lua callers can still supply `path` to `default()` or `showlog()`.
 
 不传 `path` 时，依次选择当前文件的 root magic comment、`subfiles` 文档类参数、
@@ -117,21 +114,58 @@ root comment 请放在文件开头的 TeX magic comment 块中，位于空行或
 请写完整文件名（包括 `.tex`）；声明目标不可读、root 为空或 `subfiles` 参数无效时报错。
 
 声明只解析一层，不继续追踪目标文件自身的 root/subfiles 声明。
-选定主文件后，从主文件识别引擎（显式传入 `source` 时除外）；主文件和子文件共享
-构建目录。默认日志、arara 和 PDF 查看器复用相同规则；Lua 调用仍可直接传 `path`。
+选定主文件后，从主文件识别引擎（显式传入 `source` 时除外）。
+默认日志、arara 和 PDF 查看器复用相同规则；Lua 调用仍可直接传 `path`。
 
-Intermediate files live under `build_root/<sha256(absolute-source-path)>/`.
-After exit code zero, the PDF and available `.synctex.gz` are copied beside the
-source. A failed build leaves previously published files intact. Success reports
-the selected engine and latexmk's total time; individual TeX/BibTeX timings are no
-longer collected. `showlog()` requires `texlogsieve` and `baleia.nvim`; compilation
-requires latexmk, its selected tools, and `plenary.nvim`. Engine/font caches keep
-their normal TeX configuration. Compilation, main-file selection, and PDF viewing
-do not require a Tree-sitter parser; conceal and structural editing still do.
+## Output locations and logs / 产物位置与日志
 
-中间文件放在 `build_root/<源文件绝对路径的 sha256>/`。进程成功退出后才把 PDF
-和存在的 `.synctex.gz` 复制到源目录；失败时保留上次发布的结果。
-成功通知显示引擎和 latexmk 总耗时，不再采集各个 TeX/BibTeX 子步骤的耗时。
+No output directory is imposed. By default, latexmk runs in the main document's
+folder and places files there. Configure a project's `.latexmkrc` to put them
+elsewhere, for example:
+
+不指定输出目录时，latexmk 在主文件目录构建并保存产物。需要其他目录时，在
+项目 `.latexmkrc` 中配置，例如：
+
+```perl
+$out_dir = 'build';
+```
+
+Alternatively, pass native latexmk output options in `args` (alongside the other
+options you need). nvimtex does not copy or rename PDF/SyncTeX files, validate an
+expected output path, or preserve a previous PDF through a separate publication
+step; outputs follow latexmk and the selected tools' behavior, including failure
+cases. The old `build_root` option has been removed. Existing temporary artifacts
+are not deleted or migrated.
+
+也可通过 `args` 传入 latexmk 原生输出选项，并保留需要的其他参数。
+插件不复制、重命名 PDF/SyncTeX，不检查固定产物路径，也不再通过单独的发布步骤
+保留旧 PDF；成功和失败时的产物行为都由 latexmk 和对应工具决定。
+旧 `build_root` 选项已移除，已有临时产物不会自动删除或迁移。
+
+Success reports the selected engine and latexmk's total elapsed time.
+`showlog()` reads the main document's sibling `.log`; it also accepts a TeX path
+or an exact `.log` path. Custom output directories/jobnames are not inferred:
+
+成功通知显示引擎和 latexmk 总耗时。`showlog()` 默认读取主文件旁的 `.log`，
+也可传 TeX 路径或具体日志路径；不推断用户配置中的输出目录和 jobname：
+
+```lua
+require("nvimtex.compile").showlog("/path/to/project/build/main.log")
+```
+
+The bundled PDF viewers currently assume a PDF beside the main TeX file with
+its original basename; custom output paths/jobnames need a separately configured
+viewer command (for example through TexLab). Setting a build directory does not
+automatically configure viewer or LSP paths.
+
+内置 PDF 查看器目前假定 PDF 位于主文件旁且同名；自定义产物目录或名称时，需要
+另外配置查看器调用（例如使用 TexLab）。设置构建目录不会自动配置查看器或 LSP。
+
+`showlog()` requires `texlogsieve` and `baleia.nvim`; compilation requires latexmk,
+its selected tools, and `plenary.nvim`. Engine/font caches keep their normal TeX
+configuration. Compilation, main-file selection, and PDF viewing do not require
+a Tree-sitter parser; conceal and structural editing still do.
+
 日志展示依赖 `texlogsieve` 和 `baleia.nvim`，编译依赖 latexmk、对应工具及
 `plenary.nvim`。字体缓存沿用系统正常配置。编译、主文件识别及 PDF 查看不依赖
 Tree-sitter parser；conceal 和结构编辑仍然依赖它。
@@ -147,6 +181,7 @@ The `compile.smart` backend, `compile_args`, `bib`, `rerun.skip`, and bibliograp
 
 | Old setting / 旧项 | Replacement / 替代 |
 | --- | --- |
+| `build_root` | `.latexmkrc` `$out_dir` / `$aux_dir`, or native output flags / 原生目录参数 |
 | `compile_args` | `args`: latexmk arguments / latexmk 参数 |
 | per-call `command = "xelatex"` | `engine = "xelatex"` |
 | `bib.enabled = false` | latexmk `-bibtex-` |

@@ -182,16 +182,16 @@ require("nvimtex").setup({
   compile = {
     -- engine = "lualatex", -- optional; default: automatic selection
     executable = "latexmk",
-    build_root = "/tmp/nvimtex.nvim",
   },
 })
 ```
 
-Intermediate files stay in a per-document directory under `build_root`. After a
-successful build, the PDF and available SyncTeX file are copied beside the source.
-Failed builds preserve the previous published files. The notification reports
-latexmk's total elapsed time; `require("nvimtex.compile").showlog()` opens the TeX
-log. `require("nvimtex.compile").arara()` remains available as an explicit backend.
+Output locations and filenames follow latexmk defaults and your `.latexmkrc` or
+`args`; nvimtex does not create a temporary build directory or copy artifacts.
+The notification reports latexmk's total elapsed time.
+`require("nvimtex.compile").showlog()` opens the main file's sibling log; pass an
+explicit `.log` path for custom directories/jobnames.
+`require("nvimtex.compile").arara()` remains available as an explicit backend.
 See [compilation configuration and migration](docs/compilation.md).
 
 中文：默认后端调用 latexmk，由它管理重编译、参考文献、索引、依赖和项目
@@ -201,8 +201,9 @@ See [compilation configuration and migration](docs/compilation.md).
 子文件通过 `% !TeX root = ../main.tex` 或 `subfiles` 文档类参数声明主文件；
 没有声明则编译当前文件，也可在 Lua 调用中传 `path`。声明的相对路径按子文件目录
 解析，不进行启发式搜索；无效声明报错。日志和查看器使用同一个主文件。
-请安装 latexmk 和所需 TeX 引擎，并先保存文档。中间产物保存在临时构建目录；
-只有编译成功后才复制 PDF 和 SyncTeX，失败时保留上次发布的结果。
+请安装 latexmk 和所需 TeX 引擎，并先保存文档。产物目录和名称遵循 latexmk
+默认行为、项目 `.latexmkrc` 或用户参数；插件不再创建临时构建目录或复制产物。
+`showlog()` 默认读取主文件旁的日志，自定义目录或名称时直接传 `.log` 路径。
 自带的轮数判断、参考文献调度和默认 PGF 忽略规则已移除；旧配置迁移见
 [中英文说明](docs/compilation.md)。
 
@@ -279,7 +280,7 @@ adapter tests, and real latexmk builds. Real cases cover all three engines,
 references, a table of contents requiring more than two passes, BibTeX/Biber,
 incremental bibliography updates, and explicit project rules for unstable PGF
 marks. Missing executables skip their cases; installed tools that fail cause a
-test failure. Build outputs go to `/tmp`, while formats and font caches use your
+test failure. Tests copy fixtures to `/tmp`; formats and font caches use your
 normal TeX configuration.
 
 测试包含解析、显示和编辑回归，以及引擎识别、编译适配和真实 latexmk 构建。

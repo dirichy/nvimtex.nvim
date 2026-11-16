@@ -5,9 +5,7 @@
 ---@field args string[] Arguments passed to latexmk.
 ---@field engine? nvimtex.compile.CompilerName Override automatic engine selection.
 ---@field favor nvimtex.compile.CompilerName[]
----@field build_root string
 ---@field detection nvimtex.compile.EngineDetection
-
 ---@class nvimtex.compile.EngineDetection
 ---@field documentclasses table<string, nvimtex.compile.CompilerSet>
 ---@field documentclass_prefixes { prefix: string, engines: nvimtex.compile.CompilerSet }[]
@@ -25,13 +23,10 @@
 ---@field engine? nvimtex.compile.CompilerName
 ---@field executable? string
 ---@field args? string[] Replaces the configured latexmk arguments.
----@field build_root? string
 
 ---@class nvimtex.compile.Context
 ---@field path string
----@field jobname string
 ---@field cwd string
----@field build_dir string
 ---@field engine nvimtex.compile.CompilerName
 ---@field command string
 ---@field args string[]
@@ -50,7 +45,6 @@ local M = {
 		executable = "latexmk",
 		args = { "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-synctex=1" },
 		favor = { "pdflatex", "xelatex", "lualatex" },
-		build_root = (vim.env.TMPDIR or "/tmp") .. "/nvimtex.nvim",
 		detection = {
 			documentclasses = {
 				ctexart = { xelatex = true, lualatex = true },
@@ -180,36 +174,23 @@ function M.compile_context(opts)
 	if not flag then
 		error("Cannot select a LaTeX engine; set compile.engine to pdflatex, xelatex or lualatex.")
 	end
-	local build_root = vim.fn.fnamemodify(opts.build_root or M.config.build_root, ":p")
-	local build_dir = util.ensure_dir(vim.fs.normalize(build_root .. "/" .. vim.fn.sha256(path)))
 	local args = { flag }
 	vim.list_extend(args, opts.args or M.config.args)
-	vim.list_extend(args, { "-outdir=" .. build_dir, path })
+	args[#args + 1] = path
 	return {
 		path = path,
-		jobname = vim.fn.fnamemodify(path, ":t:r"),
 		cwd = vim.fn.fnamemodify(path, ":h"),
-		build_dir = build_dir,
 		engine = engine,
 		command = opts.executable or M.config.executable,
 		args = args,
 	}
 end
 
----Compile with latexmk and publish final outputs only after a successful build.
+---Compile with latexmk using its native output paths and project configuration.
 ---@param opts? nvimtex.compile.Options
 function M.compile(opts)
 	local ctx = M.compile_context(opts)
 	compile_util.run_job(ctx.command, ctx.cwd, ctx.args, function(_, stat)
-		local pdf = util.file_path(ctx.build_dir, ctx.jobname, "pdf")
-		if not util.copy_file(pdf, util.file_path(ctx.cwd, ctx.jobname, "pdf")) then
-			vim.notify("latexmk finished without the expected PDF: " .. pdf, vim.log.levels.ERROR)
-			return
-		end
-		util.copy_file(
-			util.file_path(ctx.build_dir, ctx.jobname, "synctex.gz"),
-			util.file_path(ctx.cwd, ctx.jobname, "synctex.gz")
-		)
 		vim.notify(
 			string.format("nvimtex compile succeeded\n%s (%s): %.2fs", ctx.command, ctx.engine, stat.elapsed_ms / 1000),
 			vim.log.levels.INFO
