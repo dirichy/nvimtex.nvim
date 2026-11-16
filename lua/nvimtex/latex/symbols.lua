@@ -150,6 +150,8 @@ local M = {
 	["exp"] = { conceal = "exp", class = "operatorname", tex = "\\exp", alias = "exp" },
 	["gcd"] = { conceal = "gcd", class = "operatorname", tex = "\\gcd", alias = "gcd" },
 	["ker"] = { conceal = "ker", class = "operatorname", tex = "\\ker", alias = "ker" },
+	["ran"] = { conceal = "ran", class = "operatorname", tex = "\\ran", alias = "ran" },
+	["gra"] = { conceal = "gra", class = "operatorname", tex = "\\gra", alias = "gra" },
 	["ln"] = { conceal = "ln", class = "operatorname", tex = "\\ln", alias = "ln" },
 	["sgn"] = { conceal = "sgn", class = "operatorname", tex = "\\sgn", alias = "sgn" },
 	["sin"] = { conceal = "sin", class = "operatorname", tex = "\\sin", alias = "sin" },
