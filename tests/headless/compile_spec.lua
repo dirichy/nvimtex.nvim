@@ -83,6 +83,41 @@ assert(
 eq(#notifications, 1, "failed build has no success notification")
 eq(errors[1], { "latexmk output" }, "failure shows latexmk output")
 
+-- Automatic quickfix handles parsed failures and keeps raw output as a fallback.
+local logfile = root .. "/renamed.log"
+vim.fn.writefile({ "**a document.tex", "./a document.tex:2: Undefined control sequence.", "l.2 \\bad" }, logfile)
+local qf_before = vim.fn.getqflist({ changedtick = 1 }).changedtick
+compile.default({ path = path, log = "renamed.log" })
+assert(
+	vim.wait(1000, function()
+		return vim.fn.getqflist({ changedtick = 1 }).changedtick ~= qf_before
+	end),
+	"automatic quickfix callback"
+)
+eq(#errors, 1, "parsed failure replaces raw output")
+eq(vim.fn.getqflist()[1].lnum, 2, "automatic quickfix error line")
+latexmk.setup({ quickfix = false })
+compile.default({ path = path, log = logfile })
+assert(
+	vim.wait(1000, function()
+		return #errors == 2
+	end),
+	"disabled quickfix callback"
+)
+eq(#errors, 2, "disabled quickfix keeps raw output")
+latexmk.setup({ quickfix = { open = false, ignore = {} } })
+vim.fn.writefile({ "Output written on renamed.pdf" }, logfile)
+compile.default({ path = path, log = logfile })
+assert(
+	vim.wait(1000, function()
+		return #errors == 3
+	end),
+	"unparsed failure callback"
+)
+eq(#errors, 3, "failure without parsed errors keeps raw output")
+eq(vim.fn.getqflist(), {}, "rebuild clears previous parsed error")
+vim.fn.delete(logfile)
+
 local custom = latexmk.compile_context({ path = path, args = { "-outdir=build", "-auxdir=aux", "-jobname=custom" } })
 eq(
 	custom.args,

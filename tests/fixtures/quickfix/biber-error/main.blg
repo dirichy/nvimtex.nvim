@@ -1,0 +1,11 @@
+[0] Config.pm:329> INFO - This is Biber 2.22
+[0] Config.pm:332> INFO - Logfile is 'main.blg'
+[27] biber:342> INFO - === Mon Nov 16, 2026, 15:40:12
+[33] Biber.pm:421> INFO - Reading 'main.bcf'
+[59] Biber.pm:1002> INFO - Found 1 citekeys in bib section 0
+[65] Biber.pm:4487> INFO - Processing section 0
+[69] Biber.pm:4680> INFO - Looking for bibtex file 'refs.bib' for section 0
+[69] bibtex.pm:1713> INFO - LaTeX decoding ...
+[70] bibtex.pm:1519> INFO - Found BibTeX data source 'refs.bib'
+[72] Utils.pm:480> ERROR - BibTeX subsystem: /tmp/biber_tmp_UHAS/8fe4c9854184545302f21ebf0d47516c_13.utf8, line 3, syntax error: found "title", expected end of entry ("}" or ")") (skipping to next "@")
+[72] Biber.pm:137> INFO - ERRORS: 1

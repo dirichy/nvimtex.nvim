@@ -170,6 +170,72 @@ a Tree-sitter parser; conceal and structural editing still do.
 `plenary.nvim`。字体缓存沿用系统正常配置。编译、主文件识别及 PDF 查看不依赖
 Tree-sitter parser；conceal 和结构编辑仍然依赖它。
 
+## Errors and quickfix / 错误列表
+
+The latexmk backend reads the saved `.log` and `.blg` after both successful and
+failed builds. It opens nonempty quickfix lists without moving focus, puts errors
+before warnings, and replaces the current list when it belongs to the same main
+file. A clean build clears that list and closes its window. Unrelated lists stay
+in quickfix history; a clean build does not replace an unrelated current list.
+Use native `:cnext`, `:cprev`, and `:copen` to navigate.
+
+latexmk 成功或失败后，读取磁盘上的 `.log` 和 `.blg`，更新 quickfix。
+有消息时自动打开窗口但不移动焦点；错误排在警告前。同一主文件的当前列表会被
+替换，重新编译干净后会清空并关闭该列表。其他列表保留在原生 quickfix 历史中；
+干净构建不会替换其他来源的当前列表。使用 `:cnext`、`:cprev`、`:copen` 交互。
+
+```lua
+require("nvimtex").setup({
+  compile = {
+    -- quickfix = false, -- disable automatic parsing / 禁用自动解析
+    quickfix = {
+      open = false, -- update without opening / 只更新，不自动打开
+      ignore = { [[Underfull]], [[Package hyperref Warning]] }, -- Vim regex
+    },
+  },
+})
+
+local compile = require("nvimtex.compile")
+compile.errors() -- read saved logs and open quickfix / 读取日志并打开列表
+compile.errors({ open = false, ignore = { [[Underfull]] } })
+compile.errors({
+  path = "/path/to/main.tex",
+  log = "build/renamed.log", -- relative to main.tex / 相对主文件目录
+  -- blg = "another/location/renamed.blg", -- default: log basename / 默认与 log 同名
+})
+-- Pass the log path to compilation too when outputs are customized:
+-- 自定义输出位置时，也给编译调用传入日志路径：
+compile.default({ log = "build/renamed.log" })
+```
+
+`errors()` returns the parsed quickfix entries and works even when automatic
+quickfix is disabled. Its `path` follows the same main-file selection as
+compilation; `log` and `blg` accept absolute paths or paths relative to that main
+file's directory. Default lookup assumes sibling logs; output directories and
+jobnames from arbitrary latexmkrc code are not inferred. Per-call `errors()`
+options are independent of the automatic `compile.quickfix` settings.
+
+`errors()` 返回解析后的 quickfix 条目，禁用自动更新后仍可手动调用。
+`path` 与编译复用主文件选择规则；`log` 和 `blg` 可传绝对路径或相对主文件目录的
+路径。默认查找同目录同名日志，不推断任意 latexmkrc 代码中的产物目录和名称。
+`errors()` 的逐次参数独立于自动更新使用的 `compile.quickfix` 配置。
+
+A Lua pattern parser supports file:line errors, multiline LaTeX/package/font warnings,
+missing characters, box warnings, and common BibTeX/Biber failures and entry
+warnings. Keep `-file-line-error` in the engine arguments. Parsing does not need
+TexLab, Tree-sitter, texlogsieve, or baleia. If a failed build has no readable log
+or no parsed error, the raw compiler output remains the fallback. The arara
+backend retains its existing output behavior. This is saved build output, not
+live LSP diagnostics; log formats and literal bibliography resource lookup still
+have limits. See [parser design and benchmark](quickfix.md).
+
+Lua pattern 解析支持 file:line 错误、多行 LaTeX/宏包/字体警告、缺字、box 警告，以及常见的
+BibTeX/Biber 错误和文献条目警告。请保留引擎参数 `-file-line-error`。
+解析本身不依赖 TexLab、Tree-sitter、texlogsieve 或 baleia。失败后日志不可读或
+没有解析出错误时，仍显示原始编译输出。arara 保留现有输出方式。
+列表表示保存到日志的构建结果，不是实时 LSP 诊断；日志格式和字面文献资源查找
+仍有限制。实现与性能说明见[开发文档](quickfix.md)。
+
 ## Migration / 旧配置迁移
 
 The `compile.smart` backend, `compile_args`, `bib`, `rerun.skip`, and bibliography

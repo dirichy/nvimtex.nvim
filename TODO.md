@@ -18,7 +18,7 @@
 - [x] 默认改用 latexmk；由它管理重编译、参考文献、索引和依赖，移除自带编译调度策略。
 - [ ] 支持 tectonic、latexrun、texpresso 等后端，或至少提供可扩展 backend 接口。
 - [x] BibTeX/Biber 判断与运行交给 latexmk，使用项目 `.latexmkrc` 配置例外。
-- [ ] 解析 `.log` 到 quickfix/location list，而不是只弹出原始日志窗口。
+- [x] 解析 LaTeX `.log` 和 BibTeX/Biber `.blg` 到 quickfix，无法定位错误时保留原始输出兜底。
 - [ ] 支持编译当前选区/局部文档。
 - [ ] 编译任务需要 job 状态管理：正在运行、停止、重启、防并发、多 buffer 隔离。
 - [x] 编译支持显式主文件声明；jobname、outdir、auxdir 由 latexmk 原生参数或项目 rc 配置。

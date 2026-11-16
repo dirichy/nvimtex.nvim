@@ -1,0 +1,140 @@
+[
+  {
+    "lnum": 0,
+    "text": "Runaway argument?",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 16,
+    "text": "Paragraph ended before \\date  was complete.",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 19,
+    "text": "Undefined control sequence.\n\\test",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 21,
+    "text": "Too many }'s.\n{Hello world!}}",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 23,
+    "text": "Missing $ inserted.",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 24,
+    "text": "Missing $ inserted.",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 17,
+    "text": "LaTeX Warning: Reference `blabla' on page 1 undefined",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 25,
+    "text": "Underfull \\hbox (badness 10000) in paragraph at lines 25--27",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 28,
+    "text": "Overfull \\hbox (160.81767pt too wide) in paragraph at lines 28--29",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 1,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 1,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `\\alpha'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 1,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `\\epsilon'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 1,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 1,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `\\alpha'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 1,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `\\epsilon'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n                removing `math shift'",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "LaTeX Warning: There were undefined references.",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Package rerunfilecheck Warning: File `\"file with errors\".out' has changed.\n               Rerun to get outlines right\n               or use package `bookmark'.",
+    "file": "test-quickfix/file with errors.tex",
+    "type": "W"
+  }
+]

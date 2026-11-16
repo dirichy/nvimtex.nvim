@@ -30,6 +30,12 @@ function M.showlog(path)
 	return require("nvimtex.compile.util").showlog(path)
 end
 
+---Read saved TeX/BibTeX/Biber logs into quickfix.
+---@param opts? nvimtex.compile.ErrorOptions
+---@return nvimtex.compile.LogEntry[]
+function M.errors(opts)
+	return require("nvimtex.compile.quickfix").show(opts)
+end
 setmetatable(M, {
 	__call = function(_, opts)
 		return M.default(opts)

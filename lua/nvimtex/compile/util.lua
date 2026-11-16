@@ -26,7 +26,8 @@ end
 ---@param cwd string
 ---@param args string[]
 ---@param on_success fun(job: table, stat: nvimtex.compile.JobStat)
-function M.run_job(command, cwd, args, on_success)
+---@param on_result? fun(job: table, stat: nvimtex.compile.JobStat): boolean? Return true to replace raw failure output.
+function M.run_job(command, cwd, args, on_success, on_result)
 	local started = vim.uv.hrtime()
 	local on_exit = function(j, return_val)
 		local elapsed_ms = (vim.uv.hrtime() - started) / 1000000
@@ -37,15 +38,14 @@ function M.run_job(command, cwd, args, on_success)
 			code = return_val,
 			elapsed_ms = elapsed_ms,
 		}
-		if return_val == 0 then
-			vim.schedule(function()
+		vim.schedule(function()
+			local handled = on_result and on_result(j, stat)
+			if return_val == 0 then
 				on_success(j, stat)
-			end)
-		else
-			vim.schedule(function()
+			elseif not handled then
 				M.showbelow(j:result())
-			end)
-		end
+			end
+		end)
 	end
 	get_job():new({ command = command, cwd = cwd, args = args, on_exit = on_exit }):start()
 end

@@ -1,0 +1,152 @@
+[
+  {
+    "lnum": 0,
+    "text": "Runaway argument?\n{\\sqrt {{1}} \\end {equation} \\par \\end {document} \nFile ended while scanning use of \\frac .",
+    "file": "example-quickfix/main.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 0,
+    "text": "Emergency stop (fatal error)!",
+    "file": "example-quickfix/main.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 0,
+    "text": "Runaway argument?",
+    "file": "example-quickfix/main.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 16,
+    "text": "Paragraph ended before \\date  was complete.",
+    "file": "example-quickfix/file with errors.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 11,
+    "text": "Undefined control sequence.\n\\cdashline",
+    "file": "example-quickfix/test.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 0,
+    "text": "pdflatex (file ./a.pdf): PDF inclusion: required page does not exist <1>",
+    "file": "example-quickfix/main.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 5,
+    "text": "Fatal error occurred, no output PDF file produced!",
+    "file": "example-quickfix/b.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 99,
+    "text": "Package natbib Warning: Citation `Einstein:1905' on page 1 undefined",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 12,
+    "text": "Package refcheck Warning: Unused label `eq:my_equation_label'",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 9,
+    "text": "Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):\n                removing `\\gamma'",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 5,
+    "text": "Package hyperref Warning: Composite letter `\\textdotbelow+u'\n                not defined in PD1 encoding,\n                removing `\\textdotbelow'",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 477,
+    "text": "LaTeX Warning: Reference `fig:my_picture' on page 37 undefined",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 9,
+    "text": "Overfull \\hbox (22.0021pt too wide) in paragraph at lines 9--9",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Package biblatex warning: No \"backend\" specified, using Biber backend. To use BibTex, load biblatex with the \"backend=bibtex\" option.",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Package biblatex Warning: Data encoding is 'utf8'.\n                Use backend=biber.",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Package babel Warning: No hyphenation patterns were loaded for\n                the language `Latin'\n                I will use the patterns loaded for \\language=0 instead.",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 18,
+    "text": "Package onlyamsmath Warning: Environment eqnarray or eqnarray* used, please use\nonly the environments provided by the amsmath\npackage",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 21,
+    "text": "Package typearea Warning: \\typearea used at group level 2.\n               Using \\typearea inside any group, e.g.\n               environments, math mode, boxes, etc. may result in\n               many type setting problems.\n               You should move the command \\typearea\n               outside all groups",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Package caption Warning: Unsupported document class (or package) detected,\nusage of the caption package is not recommended.",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Overfull \\vbox (303.66812pt too high) has occurred while \\output is active []",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Missing character: There is no ^^A (U+0001) in font [lmroman10-regular]:+tlig;!",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 4,
+    "text": "Class memoir Warning: As of 2018, \\fixpdflayout\\ is no longer used",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 5,
+    "text": "LaTeX Font Warning: Font shape `OT1/cmr/bx/n' in size <8.43146> not available\nsize <8> substituted",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 6,
+    "text": "LaTeX Warning: No positions in optional float specifier.\nDefault added (so using `tbp')",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 0,
+    "text": "Package silence Warning: There were 6 warning(s) and 0 error(s).\n                I've killed 5 warning(s) and 0 error(s).",
+    "file": "example-quickfix/main.tex",
+    "type": "W"
+  }
+]

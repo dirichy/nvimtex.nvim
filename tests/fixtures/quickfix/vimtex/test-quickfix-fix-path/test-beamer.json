@@ -1,0 +1,8 @@
+[
+  {
+    "lnum": 30,
+    "text": "Overfull \\vbox (5.5187pt too high) detected at line 30",
+    "file": "test-quickfix-fix-path/test-beamer.tex",
+    "type": "W"
+  }
+]

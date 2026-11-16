@@ -1,0 +1,32 @@
+[
+  {
+    "lnum": 3,
+    "text": "Undefined control sequence.\n\\errorcommand",
+    "file": "test-quickfix-fix-path/test-hbox.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 1,
+    "text": "Undefined control sequence.\n\\anothererrorcommand",
+    "file": "test-quickfix-fix-path/test-hbox-1.tex",
+    "type": "E"
+  },
+  {
+    "lnum": 5,
+    "text": "Overfull \\hbox (5.97499pt too wide) detected at line 5",
+    "file": "test-quickfix-fix-path/test-hbox-1.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 3,
+    "text": "Overfull \\hbox (550.24501pt too wide) in paragraph at lines 3--5",
+    "file": "test-quickfix-fix-path/test-hbox-2.tex",
+    "type": "W"
+  },
+  {
+    "lnum": 2,
+    "text": "Overfull \\hbox (489.75499pt too wide) in paragraph at lines 2--2",
+    "file": "test-quickfix-fix-path/test-hbox-3.tex",
+    "type": "W"
+  }
+]

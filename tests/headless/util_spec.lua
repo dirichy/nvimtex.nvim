@@ -8,6 +8,33 @@ local function eq(actual, expected, label)
 	end
 end
 
+for _, case in ipairs({
+	{ "", "" },
+	{ "plain text", "plain text" },
+	{ "% comment", "" },
+	{ [[text \% literal % comment]], [[text \% literal ]] },
+	{ [[text \\% comment]], [[text \\]] },
+	{ [[text \\\% literal % comment]], [[text \\\% literal ]] },
+	{ [[text \\\\% comment]], [[text \\\\]] },
+}) do
+	eq(util.strip_comment(case[1]), case[2], "TeX comment escape parity")
+end
+eq(
+	util.normalize_file("./chapters/../main", { cwd = "/tmp/project with spaces", extension = "tex" }),
+	"/tmp/project with spaces/main.tex",
+	"relative path normalization and extension"
+)
+eq(
+	util.normalize_file("/tmp/./main.tex", { cwd = "/another/project" }),
+	"/tmp/main.tex",
+	"absolute path is not prefixed"
+)
+eq(
+	util.normalize_file("C:/project/main.tex", { cwd = "/another/project" }),
+	"C:/project/main.tex",
+	"Windows drive path is not prefixed"
+)
+
 local old_get_string_parser = vim.treesitter.get_string_parser
 vim.treesitter.get_string_parser = function()
 	error("no latex parser")

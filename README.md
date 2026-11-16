@@ -192,6 +192,10 @@ The notification reports latexmk's total elapsed time.
 `require("nvimtex.compile").showlog()` opens the main file's sibling log; pass an
 explicit `.log` path for custom directories/jobnames.
 `require("nvimtex.compile").arara()` remains available as an explicit backend.
+After latexmk finishes, saved LaTeX/BibTeX/Biber logs update quickfix. Open it
+again with `require("nvimtex.compile").errors()` and navigate with `:cnext` /
+`:cprev`. Set `compile.quickfix = false` to disable automatic updates, or
+`compile.quickfix = { open = false }` to update without opening the window.
 See [compilation configuration and migration](docs/compilation.md).
 
 中文：默认后端调用 latexmk，由它管理重编译、参考文献、索引、依赖和项目
@@ -204,6 +208,9 @@ See [compilation configuration and migration](docs/compilation.md).
 请安装 latexmk 和所需 TeX 引擎，并先保存文档。产物目录和名称遵循 latexmk
 默认行为、项目 `.latexmkrc` 或用户参数；插件不再创建临时构建目录或复制产物。
 `showlog()` 默认读取主文件旁的日志，自定义目录或名称时直接传 `.log` 路径。
+latexmk 结束后会读取 LaTeX/BibTeX/Biber 日志更新 quickfix；用 `errors()`
+重新打开，`:cnext` / `:cprev` 跳转。`compile.quickfix = false` 禁用自动更新，
+`compile.quickfix = { open = false }` 只更新列表，不自动打开窗口。
 自带的轮数判断、参考文献调度和默认 PGF 忽略规则已移除；旧配置迁移见
 [中英文说明](docs/compilation.md)。
 

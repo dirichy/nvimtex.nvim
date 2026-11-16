@@ -6,6 +6,12 @@
 ---@field engine? nvimtex.compile.CompilerName Override automatic engine selection.
 ---@field favor nvimtex.compile.CompilerName[]
 ---@field detection nvimtex.compile.EngineDetection
+---@field quickfix false|nvimtex.compile.QuickfixConfig
+
+---@class nvimtex.compile.QuickfixConfig
+---@field open boolean Open a nonempty quickfix list without moving focus.
+---@field ignore string[] Vim regular expressions matched against messages.
+
 ---@class nvimtex.compile.EngineDetection
 ---@field documentclasses table<string, nvimtex.compile.CompilerSet>
 ---@field documentclass_prefixes { prefix: string, engines: nvimtex.compile.CompilerSet }[]
@@ -23,6 +29,8 @@
 ---@field engine? nvimtex.compile.CompilerName
 ---@field executable? string
 ---@field args? string[] Replaces the configured latexmk arguments.
+---@field log? string Exact log path for custom output directories/jobnames.
+---@field blg? string Exact bibliography log path; defaults to the log basename.
 
 ---@class nvimtex.compile.Context
 ---@field path string
@@ -45,6 +53,7 @@ local M = {
 		executable = "latexmk",
 		args = { "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-synctex=1" },
 		favor = { "pdflatex", "xelatex", "lualatex" },
+		quickfix = { open = true, ignore = {} },
 		detection = {
 			documentclasses = {
 				ctexart = { xelatex = true, lualatex = true },
@@ -189,12 +198,34 @@ end
 ---Compile with latexmk using its native output paths and project configuration.
 ---@param opts? nvimtex.compile.Options
 function M.compile(opts)
+	opts = opts or {}
 	local ctx = M.compile_context(opts)
 	compile_util.run_job(ctx.command, ctx.cwd, ctx.args, function(_, stat)
 		vim.notify(
 			string.format("nvimtex compile succeeded\n%s (%s): %.2fs", ctx.command, ctx.engine, stat.elapsed_ms / 1000),
 			vim.log.levels.INFO
 		)
+	end, function(_, stat)
+		if M.config.quickfix == false then
+			return false
+		end
+		local logfile = util.normalize_file(opts.log or vim.fn.fnamemodify(ctx.path, ":r") .. ".log", { cwd = ctx.cwd })
+		if vim.fn.filereadable(logfile) == 0 then
+			return false
+		end
+		local items = require("nvimtex.compile.quickfix").show({
+			path = ctx.path,
+			log = logfile,
+			blg = opts.blg,
+			open = M.config.quickfix.open,
+			ignore = M.config.quickfix.ignore,
+		})
+		for _, item in ipairs(items) do
+			if item.type == "E" then
+				return true
+			end
+		end
+		return stat.code == 0
 	end)
 end
 

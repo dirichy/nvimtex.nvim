@@ -10,6 +10,19 @@ function M.source_lines(source)
 	return {}
 end
 
+---Remove a TeX line comment, preserving escaped percent signs.
+---@param line string
+---@return string
+function M.strip_comment(line)
+	-- A percent sign starts a comment only after an even number of slashes.
+	for start, slashes in line:gmatch("()(\\*)%%") do
+		if #slashes % 2 == 0 then
+			return line:sub(1, start + #slashes - 1)
+		end
+	end
+	return line
+end
+
 -- Header readers fetch buffer lines in small batches and stop at the preamble.
 local function header_lines(source)
 	if type(source) ~= "number" then
@@ -29,13 +42,7 @@ end
 local function preamble(source)
 	local lines = {}
 	for line in header_lines(source) do
-		-- A percent sign starts a comment only after an even number of slashes.
-		for start, slashes in line:gmatch("()(\\*)%%") do
-			if #slashes % 2 == 0 then
-				line = line:sub(1, start + #slashes - 1)
-				break
-			end
-		end
+		line = M.strip_comment(line)
 		local finish = line:find("\\begin%s*{%s*document%s*}")
 		lines[#lines + 1] = finish and line:sub(1, finish - 1) or line
 		if finish then
@@ -278,6 +285,9 @@ function M.file_path(dir, stem, extension)
 	return dir .. "/" .. M.with_extension(stem, extension)
 end
 
+---@param path string
+---@param opts? { cwd?: string, extension?: string }
+---@return string
 function M.normalize_file(path, opts)
 	opts = opts or {}
 	if opts.extension then
@@ -286,7 +296,7 @@ function M.normalize_file(path, opts)
 	if opts.cwd and not M.is_absolute_path(path) then
 		path = opts.cwd .. "/" .. path
 	end
-	return vim.fs.normalize(path)
+	return vim.fs.normalize(vim.fn.simplify(path))
 end
 
 function M.relative_path(base, path)
