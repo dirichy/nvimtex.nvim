@@ -206,26 +206,7 @@ function M.compile(opts)
 			vim.log.levels.INFO
 		)
 	end, function(_, stat)
-		if M.config.quickfix == false then
-			return false
-		end
-		local logfile = util.normalize_file(opts.log or vim.fn.fnamemodify(ctx.path, ":r") .. ".log", { cwd = ctx.cwd })
-		if vim.fn.filereadable(logfile) == 0 then
-			return false
-		end
-		local items = require("nvimtex.compile.quickfix").show({
-			path = ctx.path,
-			log = logfile,
-			blg = opts.blg,
-			open = M.config.quickfix.open,
-			ignore = M.config.quickfix.ignore,
-		})
-		for _, item in ipairs(items) do
-			if item.type == "E" then
-				return true
-			end
-		end
-		return stat.code == 0
+		return require("nvimtex.compile.quickfix").update(ctx.path, stat.code, M.config.quickfix, opts)
 	end)
 end
 

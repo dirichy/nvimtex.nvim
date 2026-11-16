@@ -72,4 +72,29 @@ function M.show(opts)
 	return items
 end
 
+---Update saved build diagnostics; return whether raw failure output is unnecessary.
+---@param path string Absolute main TeX path.
+---@param code integer
+---@param config false|nvimtex.compile.QuickfixConfig
+---@param opts? { log?: string, blg?: string }
+---@return boolean
+function M.update(path, code, config, opts)
+	if config == false then
+		return false
+	end
+	opts = opts or {}
+	local logfile =
+		util.normalize_file(opts.log or vim.fn.fnamemodify(path, ":r") .. ".log", { cwd = vim.fs.dirname(path) })
+	if vim.fn.filereadable(logfile) == 0 then
+		return false
+	end
+	local items = M.show({ path = path, log = logfile, blg = opts.blg, open = config.open, ignore = config.ignore })
+	for _, item in ipairs(items) do
+		if item.type == "E" then
+			return true
+		end
+	end
+	return code == 0
+end
+
 return M

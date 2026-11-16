@@ -118,6 +118,63 @@ eq(#errors, 3, "failure without parsed errors keeps raw output")
 eq(vim.fn.getqflist(), {}, "rebuild clears previous parsed error")
 vim.fn.delete(logfile)
 
+-- arara uses the same completion path, including shared settings and log overrides.
+vim.api.nvim_set_current_buf(buf)
+vim.fn.writefile({ "./a document.tex:2: Undefined control sequence." }, logfile)
+exit_code = 1
+qf_before = vim.fn.getqflist({ changedtick = 1 }).changedtick
+compile.arara({ log = "renamed.log" })
+assert(
+	vim.wait(1000, function()
+		return vim.fn.getqflist({ changedtick = 1 }).changedtick ~= qf_before
+	end),
+	"arara quickfix callback"
+)
+eq(calls[#calls].command, "arara", "arara executable")
+eq(calls[#calls].log, nil, "log option is not passed to plenary")
+eq(vim.fn.getqflist()[1].lnum, 2, "arara shares error parsing")
+eq(#errors, 3, "parsed arara failure replaces raw output")
+
+exit_code = 0
+vim.fn.writefile({ "Output written on renamed.pdf" }, logfile)
+local notice_count = #notifications
+compile.arara({ log = logfile })
+assert(
+	vim.wait(1000, function()
+		return #notifications > notice_count
+	end),
+	"arara success callback"
+)
+eq(vim.fn.getqflist(), {}, "arara success clears stale errors")
+
+exit_code = 1
+latexmk.setup({ quickfix = false })
+compile.arara({ log = logfile })
+assert(
+	vim.wait(1000, function()
+		return #errors == 4
+	end),
+	"arara disabled quickfix callback"
+)
+latexmk.setup({ quickfix = { open = false, ignore = {} } })
+vim.fn.delete(logfile)
+exit_code = 2
+compile.arara()
+assert(
+	vim.wait(1000, function()
+		return #errors == 5
+	end),
+	"arara raw-output fallback without a log"
+)
+
+local custom_exit
+compile.arara({
+	on_exit = function(_, code)
+		custom_exit = code
+	end,
+})
+eq(custom_exit, 2, "arara preserves custom job callbacks")
+
 local custom = latexmk.compile_context({ path = path, args = { "-outdir=build", "-auxdir=aux", "-jobname=custom" } })
 eq(
 	custom.args,

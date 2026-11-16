@@ -154,3 +154,53 @@ for _, case in ipairs({
 }) do
 	run_case(case)
 end
+
+if vim.fn.executable("arara") == 1 and vim.fn.executable("pdflatex") == 1 then
+	local root = copy_fixture({ name = "arara", fixture = "simple" })
+	local main = root .. "/main.tex"
+	latexmk.setup({ quickfix = { open = false, ignore = {} } })
+	vim.fn.setqflist({}, " ", { title = "unrelated", items = { { text = "keep unrelated warning", type = "W" } } })
+	local unrelated = vim.fn.getqflist()
+	for step, failing in ipairs({ false, true, false }) do
+		vim.fn.writefile({
+			"% arara: pdflatex: { interaction: nonstopmode, options: ['-file-line-error', '-halt-on-error'] }",
+			"\\documentclass{article}",
+			"\\begin{document}",
+			failing and "\\NvimtexUndefinedCommand" or "A repaired arara document.",
+			"\\end{document}",
+		}, main)
+		vim.cmd.edit(main)
+		commands, notices, errors = {}, {}, {}
+		compile.arara()
+		assert(
+			vim.wait(1000, function()
+				if #notices + #errors > 0 then
+					return true
+				end
+				if not failing then
+					return false
+				end
+				local qf = vim.fn.getqflist({ context = 1, items = 1 })
+				return type(qf.context) == "table" and qf.context.nvimtex == main and #qf.items > 0
+			end),
+			"arara completion callback did not finish"
+		)
+		assert(#commands == 1 and commands[1].spec.command == "arara", "arara must run once")
+		assert(#errors == 0, table.concat(errors, "\n"))
+		local qf = vim.fn.getqflist()
+		if failing then
+			assert(commands[1].code ~= 0, "invalid arara document must fail")
+			assert(#qf > 0 and qf[1].type == "E" and qf[1].lnum == 4, vim.inspect(qf))
+			assert(vim.api.nvim_buf_get_name(qf[1].bufnr) == main, "arara error must target its source")
+		else
+			assert(commands[1].code == 0, commands[1].output)
+			assert(#notices == 1, "successful arara build must report output")
+			if step == 1 then
+				assert(vim.deep_equal(qf, unrelated), "clean arara build must preserve unrelated quickfix")
+			else
+				assert(#qf == 0, "arara rebuild must clear stale errors")
+			end
+		end
+	end
+	print("ok real arara success, quickfix failure and repaired rebuild")
+end

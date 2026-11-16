@@ -2,7 +2,7 @@
 local M = {}
 
 ---Run the arara backend for the current TeX file.
----@param opts? table Overrides passed to plenary.job.
+---@param opts? table Job overrides and optional log/blg paths.
 ---@return nil
 function M.arara(opts)
 	return require("nvimtex.compile.arara")(opts)

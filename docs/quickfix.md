@@ -13,11 +13,13 @@ LaTeX 消息语义、警告路径启发式和文献日志规则参考上述 VimT
 - `compile/bibliography.lua`: BibTeX/Biber parsing and bibliography entry lookup.
 - `compile/quickfix.lua`: reading both logs, filtering, stable error-first order,
   and native quickfix presentation.
-- The latexmk completion callback invokes quickfix; arara keeps its existing
-  behavior. There is no LSP or diagnostic namespace to synchronize.
+- Both backend completion callbacks invoke `quickfix.update()`, sharing log
+  lookup, settings, and the raw-output fallback decision. There is no LSP or
+  diagnostic namespace to synchronize.
 
 上述模块分别负责 Lua pattern 解析、多行消息和路径修正，文献日志与条目定位，列表合并与交互。
-latexmk 完成回调调用 quickfix，arara 保持原行为，不引入 LSP 状态同步。
+latexmk 和 arara 的完成回调共用 `quickfix.update()`，统一日志查找、配置和兜底判断，
+不引入 LSP 状态同步。
 
 Parsing uses Lua patterns and a single forward pass to recognize message starts,
 continuations, and ends. Ordinary tracing output closes the active message.

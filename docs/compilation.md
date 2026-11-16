@@ -172,14 +172,15 @@ Tree-sitter parser；conceal 和结构编辑仍然依赖它。
 
 ## Errors and quickfix / 错误列表
 
-The latexmk backend reads the saved `.log` and `.blg` after both successful and
-failed builds. It opens nonempty quickfix lists without moving focus, puts errors
-before warnings, and replaces the current list when it belongs to the same main
+The latexmk and arara backends share one completion handler that reads the saved
+`.log` and `.blg` after both successful and failed builds. It opens nonempty
+quickfix lists without moving focus, puts errors before warnings, and replaces
+the current list when it belongs to the same main
 file. A clean build clears that list and closes its window. Unrelated lists stay
 in quickfix history; a clean build does not replace an unrelated current list.
 Use native `:cnext`, `:cprev`, and `:copen` to navigate.
 
-latexmk 成功或失败后，读取磁盘上的 `.log` 和 `.blg`，更新 quickfix。
+latexmk 和 arara 共用完成处理：成功或失败后读取磁盘上的 `.log` 和 `.blg`，更新 quickfix。
 有消息时自动打开窗口但不移动焦点；错误排在警告前。同一主文件的当前列表会被
 替换，重新编译干净后会清空并关闭该列表。其他列表保留在原生 quickfix 历史中；
 干净构建不会替换其他来源的当前列表。使用 `:cnext`、`:cprev`、`:copen` 交互。
@@ -224,17 +225,33 @@ A Lua pattern parser supports file:line errors, multiline LaTeX/package/font war
 missing characters, box warnings, and common BibTeX/Biber failures and entry
 warnings. Keep `-file-line-error` in the engine arguments. Parsing does not need
 TexLab, Tree-sitter, texlogsieve, or baleia. If a failed build has no readable log
-or no parsed error, the raw compiler output remains the fallback. The arara
-backend retains its existing output behavior. This is saved build output, not
-live LSP diagnostics; log formats and literal bibliography resource lookup still
+or no parsed error, the raw compiler output remains the fallback. This is saved
+build output, not live LSP diagnostics; log formats and literal bibliography resource lookup still
 have limits. See [parser design and benchmark](quickfix.md).
 
 Lua pattern 解析支持 file:line 错误、多行 LaTeX/宏包/字体警告、缺字、box 警告，以及常见的
 BibTeX/Biber 错误和文献条目警告。请保留引擎参数 `-file-line-error`。
 解析本身不依赖 TexLab、Tree-sitter、texlogsieve 或 baleia。失败后日志不可读或
-没有解析出错误时，仍显示原始编译输出。arara 保留现有输出方式。
+没有解析出错误时，两种后端均显示原始编译输出。
 列表表示保存到日志的构建结果，不是实时 LSP 诊断；日志格式和字面文献资源查找
 仍有限制。实现与性能说明见[开发文档](quickfix.md)。
+
+`compile.arara()` uses the same `compile.quickfix` settings and accepts `log` /
+`blg` overrides alongside its existing plenary job options:
+
+`compile.arara()` 复用同一份 `compile.quickfix` 配置，并可在原有 plenary job
+参数之外传入 `log` / `blg`：
+
+```lua
+compile.arara({ log = "build/main.log" })
+```
+
+Keep `-file-line-error` in the arara rule's engine options too. Default log lookup
+still assumes sibling logs. Supplying your own job `on_exit` replaces the default
+completion handler, including automatic quickfix updates.
+
+arara 规则中的引擎选项也应保留 `-file-line-error`。默认仍查找同目录同名日志。
+传入自定义 job `on_exit` 会替换默认完成处理，也就替换了自动 quickfix 更新。
 
 ## Migration / 旧配置迁移
 
