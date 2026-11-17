@@ -53,10 +53,36 @@ local function output(buf)
 end
 
 local first = buffer("tex", { [[\begin{document}]], [[$\alpha$]], "plain text", [[\end{document}]] })
+eq(vim.wo.concealcursor, "nvic", "LaTeX applies configured cursor conceal")
 eq(output(first), "α", "initial formula")
 local initial = marks(first)
 flush(first)
 eq(marks(first), initial, "cursor-only refresh reuses inactive extmarks")
+vim.wo.concealcursor = "i"
+vim.wo.conceallevel = 1
+conceal.setup_buf(first)
+conceal.forceRefresh(first)
+flush(first)
+eq(vim.wo.concealcursor, "i", "repeated setup and refresh preserve user cursor conceal")
+eq(vim.wo.conceallevel, 1, "repeated setup and refresh preserve user conceal level")
+vim.api.nvim_win_set_cursor(0, { 2, 0 })
+flush(first)
+eq(output(first), "", "native cursor-line reveal suppresses virtual replacement outside the formula")
+vim.api.nvim_win_set_cursor(0, { 3, 0 })
+flush(first)
+eq(output(first), "α", "leaving the revealed line restores conceal")
+vim.wo.conceallevel = 0
+flush(first)
+eq(#marks(first), 0, "conceallevel zero removes virtual replacements")
+conceal.toggle()
+conceal.toggle()
+flush(first)
+eq(#marks(first), 0, "toggling conceal preserves the user's disabled conceal level")
+eq(vim.wo.conceallevel, 0, "refresh leaves conceal disabled")
+vim.wo.conceallevel = 2
+vim.wo.concealcursor = "nvic"
+flush(first)
+eq(output(first), "α", "raising conceallevel restores rendering")
 vim.api.nvim_buf_set_lines(first, 1, 2, false, { [[$\beta$]] })
 flush(first)
 eq(output(first), "β", "editing a formula off the cursor invalidates generated text")
@@ -134,8 +160,25 @@ assert(vim.wait(1000, function()
 end, 1))
 eq(output(first), "α", "scroll event renders newly visible formulas")
 
+vim.wo.concealcursor = ""
 local md = buffer("markdown", { "text $\\alpha$", "plain text" })
+eq(vim.wo.concealcursor, "", "Markdown preserves native cursor-line reveal")
 assert(#marks(md) > 0, "markdown has conceal marks")
+for _, value in ipairs({ "n", "nvic", "" }) do
+	vim.wo.concealcursor = value
+	flush(md)
+	eq(vim.wo.concealcursor, value, "Markdown refresh preserves user cursor conceal")
+end
+vim.api.nvim_buf_set_lines(md, 0, 1, false, { "text $\\alpha$ and $\\beta$" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+flush(md)
+eq(output(md), "", "Markdown reveals every formula on the cursor line")
+vim.api.nvim_win_set_cursor(0, { 2, 0 })
+flush(md)
+eq(output(md), "αβ", "leaving Markdown line restores all formulas")
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+flush(md)
+eq(output(md), "", "returning to a cached Markdown line reveals all formulas")
 vim.api.nvim_buf_set_lines(md, 0, 1, false, { "plain text" })
 flush(md)
 eq(#marks(md), 0, "removed Markdown injection clears its marks")
@@ -143,4 +186,70 @@ vim.api.nvim_buf_delete(md, { force = true })
 eq(conceal.have_setup[md], nil, "Markdown detach releases setup state")
 eq(conceal.buffer_state[md], nil, "Markdown detach releases buffer state")
 eq(renderer.buffer_commands[md], nil, "Markdown detach leaves no definitions")
+
+-- A separate event loop exercises real mode/option events without manual refresh.
+local child = vim.fn.jobstart({ vim.v.progpath, "--embed", "--headless", "-u", "NONE", "-i", "NONE", "-n" }, {
+	rpc = true,
+	env = { NVIM_LOG_FILE = vim.fn.tempname() },
+})
+assert(child > 0)
+local function lua(code, ...)
+	return vim.rpcrequest(child, "nvim_exec_lua", code, { ... })
+end
+local function expect_rows(expected, label)
+	assert(
+		vim.wait(1000, function()
+			return vim.deep_equal(
+				lua([[
+            local rows = {}
+            for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(0, vim.api.nvim_create_namespace('nvimtex'), 0, -1, {})) do
+                rows[mark[2] + 1] = true
+            end
+            return { rows[1] or false, rows[2] or false }
+        ]]),
+				expected
+			)
+		end, 10),
+		label
+	)
+end
+local ok, err = xpcall(function()
+	lua(
+		[[
+        vim.opt.rtp:prepend(...)
+        vim.bo.filetype = 'tex'
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'text $\\alpha$', 'text $\\beta$', 'plain' })
+        vim.api.nvim_win_set_cursor(0, { 3, 0 })
+        require('nvimtex.conceal').config.debounce = 5
+        require('nvimtex.conceal').setup_buf()
+        vim.wo.concealcursor = 'n'
+    ]],
+		vim.fn.getcwd()
+	)
+	expect_rows({ true, true }, "initial event-loop rendering")
+	vim.rpcrequest(child, "nvim_input", "ggi")
+	expect_rows({ false, true }, "Insert mode reveals cursor line without moving")
+	vim.rpcrequest(child, "nvim_input", "<Esc>")
+	expect_rows({ true, true }, "leaving Insert mode restores cursor-line conceal")
+	for _, visual in ipairs({ "v", "V", "<C-v>" }) do
+		vim.rpcrequest(child, "nvim_input", "gg" .. visual .. "j")
+		expect_rows({ false, false }, "Visual selection reveals every selected line: " .. visual)
+		vim.rpcrequest(child, "nvim_input", "<Esc>")
+		expect_rows({ true, true }, "leaving Visual mode restores every selected line")
+	end
+	vim.rpcrequest(child, "nvim_input", ":")
+	expect_rows({ true, false }, "Command-line mode respects concealcursor")
+	vim.rpcrequest(child, "nvim_input", "<Esc>")
+	expect_rows({ true, true }, "leaving Command-line mode restores conceal")
+	lua("vim.wo.conceallevel = 0")
+	expect_rows({ false, false }, "OptionSet disables rendering without cursor movement")
+	lua("require('nvimtex.conceal').setup_buf()")
+	eq(lua("return vim.wo.conceallevel"), 0, "re-entering the buffer preserves user options")
+	lua("vim.wo.conceallevel = 2")
+	expect_rows({ true, true }, "OptionSet re-enables rendering")
+	lua("vim.wo.concealcursor = ''")
+	expect_rows({ true, false }, "OptionSet reveals the cursor line without movement")
+end, debug.traceback)
+vim.fn.jobstop(child)
+assert(ok, err)
 print("ok conceal edit, window, toggle, scroll, and detach lifecycle")

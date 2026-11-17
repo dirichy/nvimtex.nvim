@@ -144,9 +144,25 @@ local function refresh_now(buffer, root)
 	end
 	-- Renderer cursor context and window options must belong to this buffer.
 	vim.api.nvim_win_call(win, function()
-		vim.wo.conceallevel = 2
-		if M.config.conceal_cursor then
-			vim.wo.concealcursor = M.config.conceal_cursor
+		local ft = vim.bo[buffer].filetype
+		if vim.wo.conceallevel == 0 then
+			clear_marks(buffer)
+			return
+		end
+		local mode = vim.fn.mode():sub(1, 1)
+		if mode == "v" or mode == "V" or mode == "\22" or mode == "s" or mode == "S" or mode == "\19" then
+			mode = "v"
+		elseif mode == "R" then
+			mode = "i"
+		end
+		local reveal_rows
+		if not vim.wo.concealcursor:find(mode, 1, true) then
+			local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+			reveal_rows = { row, row }
+			if mode == "v" then
+				local anchor = vim.fn.line("v") - 1
+				reveal_rows = { math.min(row, anchor), math.max(row, anchor) }
+			end
 		end
 		local state = M.buffer_state[buffer]
 		local tick = vim.api.nvim_buf_get_changedtick(buffer)
@@ -160,7 +176,6 @@ local function refresh_now(buffer, root)
 		vim.api.nvim_buf_clear_namespace(buffer, extmark.ns_id.fast, 0, -1)
 		local roots = root and { root } or M.latex_roots(buffer)
 		processor.begin_cursor_refresh(buffer)
-		local ft = vim.bo[buffer].filetype
 		local top, bottom = require("nvimtex.conceal.util").viewport(win)
 		top = math.max(top - M.config.viewport_margin, 0)
 		bottom = math.min(bottom + M.config.viewport_margin, vim.api.nvim_buf_line_count(buffer) - 1)
@@ -176,6 +191,7 @@ local function refresh_now(buffer, root)
 				end
 			end
 			processor.process_conceal(document or latex_root, buffer, top, bottom, {
+				reveal_rows = reveal_rows,
 				binary_threshold = M.config.binary_threshold,
 				lookbehind = M.config.child_lookbehind,
 			})
@@ -236,6 +252,14 @@ function M.setup_buf(buffer)
 	end
 	M.have_setup[buffer] = true
 	M.buffer_state[buffer] = { preamble_dirty = true }
+	local win = window_for_buffer(buffer)
+	if win then
+		vim.wo[win].conceallevel = 2
+		-- Injected LaTeX shares cursor-line conceal with the host's Tree-sitter highlights.
+		if M.config.latex_filetypes[ft] and M.config.conceal_cursor then
+			vim.wo[win].concealcursor = M.config.conceal_cursor
+		end
+	end
 	vim.api.nvim_buf_attach(buffer, false, {
 		on_lines = function(_, changed_buffer, _, first_line)
 			local state = M.buffer_state[changed_buffer]
@@ -256,7 +280,7 @@ function M.setup_buf(buffer)
 		end,
 	})
 	local group = vim.api.nvim_create_augroup("nvimtex.conceal." .. buffer, { clear = true })
-	local events = { "BufWinEnter", "WinEnter" }
+	local events = { "BufWinEnter", "WinEnter", "ModeChanged" }
 	for _, configured in ipairs({
 		M.config.refresh_events,
 		M.config.local_refresh_events,
@@ -279,6 +303,15 @@ function M.setup_buf(buffer)
 		group = group,
 		callback = function()
 			if window_for_buffer(buffer) then
+				M.refresh(buffer)
+			end
+		end,
+	})
+	vim.api.nvim_create_autocmd("OptionSet", {
+		group = group,
+		pattern = { "concealcursor", "conceallevel" },
+		callback = function()
+			if vim.api.nvim_get_current_buf() == buffer then
 				M.refresh(buffer)
 			end
 		end,

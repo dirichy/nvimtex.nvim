@@ -550,6 +550,7 @@ end
 ---@field default_highlight? string|string[]
 ---@field reveal? fun(start:Nvimtex.RenderTree.Position,finish:Nvimtex.RenderTree.Position,leaf:Nvimtex.RenderTree.Leaf):boolean?
 ---@field extmark? table<string,any>
+---@field reveal_rows? integer[] inclusive zero-based rows to leave unconcealed
 
 ---Emit one extmark per display leaf, or per physical line for multiline
 ---replacements. A non-insert leaf ends at the following leaf's start.
@@ -608,21 +609,29 @@ function RenderTree:emit_extmarks(buffer, namespace, opts)
 						}
 					or replacement_segments(buffer, leaf.row, leaf.col, finish_row, finish_col)
 				for _, segment in ipairs(segments) do
-					-- Only the first physical line shows virtual text. Continuation
-					-- segments merely conceal non-indentation source bytes.
-					local extmark_opts = vim.tbl_deep_extend("force", {}, opts.extmark or {}, {
-						end_row = segment.finish_row,
-						end_col = segment.finish_col,
-						virt_text = segment.first and chunks or {},
-						virt_text_pos = "inline",
-						undo_restore = false,
-						invalidate = true,
-					})
-					if not inserting then
-						extmark_opts.conceal = ""
+					local rows = opts.reveal_rows
+					if not rows or segment.start_row < rows[1] or segment.start_row > rows[2] then
+						-- Only the first physical line shows virtual text. Continuation
+						-- segments merely conceal non-indentation source bytes.
+						local extmark_opts = vim.tbl_deep_extend("force", {}, opts.extmark or {}, {
+							end_row = segment.finish_row,
+							end_col = segment.finish_col,
+							virt_text = segment.first and chunks or {},
+							virt_text_pos = "inline",
+							undo_restore = false,
+							invalidate = true,
+						})
+						if not inserting then
+							extmark_opts.conceal = ""
+						end
+						extmark_ids[#extmark_ids + 1] = api.nvim_buf_set_extmark(
+							buffer,
+							namespace,
+							segment.start_row,
+							segment.start_col,
+							extmark_opts
+						)
 					end
-					extmark_ids[#extmark_ids + 1] =
-						api.nvim_buf_set_extmark(buffer, namespace, segment.start_row, segment.start_col, extmark_opts)
 				end
 			end
 		end

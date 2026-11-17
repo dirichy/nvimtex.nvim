@@ -43,6 +43,23 @@ Conceal updates the visible region on edits, cursor movement, and scrolling.
 `require("nvimtex.conceal").toggle()` turns it off or on for initialized buffers;
 `forceRefresh()` rebuilds the current buffer's definitions and display.
 
+`conceal.conceal_cursor` (default `"nvic"`, `false` to leave it unchanged) only
+sets `concealcursor` once when initializing `tex`, `plaintex`, and `latex` buffers.
+Markdown, Rmd, and Quarto preserve the window's current setting because it also
+controls Tree-sitter conceal. Use `setlocal concealcursor=` to reveal the whole
+cursor line in all modes.
+`conceallevel` is initialized to `2` once. Later refreshes preserve both options:
+`conceallevel=0` disables rendering, and lines revealed by `concealcursor` get no
+conceal or virtual replacements, including selected lines in Visual mode.
+
+`conceal.conceal_cursor`（默认 `"nvic"`，设为 `false` 则不修改）仅在 `tex`、
+`plaintex`、`latex` 首次初始化时设置一次 `concealcursor`。Markdown、Rmd、Quarto
+保留窗口当前设置，因为它也控制 Tree-sitter conceal。使用 `setlocal concealcursor=` 可在所有
+模式下显示光标整行的原文。
+`conceallevel` 也只在初始化时设为 `2`，后续刷新保留这两个选项的用户修改：
+`conceallevel=0` 关闭渲染；根据 `concealcursor` 应显示原文的行不会添加 conceal
+或虚拟替换文本，包括 Visual 模式选中的各行。
+
 ```lua
 require("nvimtex").setup({
   conceal = {

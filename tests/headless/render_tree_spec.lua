@@ -105,4 +105,13 @@ eq(
 )
 eq(multiline_marks[2][4].virt_text, nil, "continuation lines conceal surplus source without repeated output")
 
+vim.api.nvim_buf_clear_namespace(multiline_buf, multiline_namespace, 0, -1)
+multiline:emit_extmarks(multiline_buf, multiline_namespace, { reveal_rows = { 1, 1 } })
+multiline_marks = vim.api.nvim_buf_get_extmarks(multiline_buf, multiline_namespace, 0, -1, {})
+eq(#multiline_marks, 2, "revealing a continuation line preserves conceal on other lines")
+eq({ multiline_marks[1][2], multiline_marks[2][2] }, { 0, 2 }, "revealed continuation emits no replacement")
+
+vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
+eq(#atomic:emit_extmarks(buf, namespace, { reveal_rows = { 0, 0 } }), 0, "line reveal also suppresses atomic output")
+
 print("ok immutable render tree")

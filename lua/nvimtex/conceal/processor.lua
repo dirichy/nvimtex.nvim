@@ -88,11 +88,12 @@ function M.begin_cursor_refresh(buffer)
 	cursor_render_extmarks[buffer] = nil
 end
 
----Render a complete math tree only when it is new or contains the cursor.
+---Render a complete math tree when new, under the cursor, or on revealed lines.
 ---The refresh entry runs in the target window, so its cursor belongs to buffer.
 ---@param node Nvimtex.LNode
 ---@param buffer integer
-local function render_tree(node, buffer)
+---@param opts Nvimtex.Processor.Options
+local function render_tree(node, buffer, opts)
 	local namespace = extmark.ns_id.conceal
 	local marks = marks_in_node(buffer, namespace, node)
 	local cursor
@@ -103,12 +104,17 @@ local function render_tree(node, buffer)
 			cursor = { row, col }
 		end
 	end
-	if cursor then
+	local start_row, _, end_row, end_col = node:range()
+	local rows = opts.reveal_rows
+	local reveal = rows and start_row <= rows[2] and (end_row > rows[1] or end_row == rows[1] and end_col > 0)
+	if cursor or reveal then
 		for _, mark in ipairs(marks) do
 			vim.api.nvim_buf_del_extmark(buffer, namespace, mark[1])
 		end
-		cursor_render_extmarks[buffer] =
-			renderer.render_node(node, buffer, { cursor = cursor }):emit_extmarks(buffer, namespace)
+		local ids = renderer.render_node(node, buffer, { cursor = cursor }):emit_extmarks(buffer, namespace, {
+			reveal_rows = rows,
+		})
+		cursor_render_extmarks[buffer] = vim.list_extend(cursor_render_extmarks[buffer] or {}, ids)
 	elseif #marks == 0 then
 		renderer.render_node(node, buffer):emit_extmarks(buffer, namespace)
 	end
@@ -117,6 +123,7 @@ end
 ---@class Nvimtex.Processor.Options
 ---@field binary_threshold? integer minimum child count before binary seeking
 ---@field lookbehind? integer children retained before the binary-search result
+---@field reveal_rows? integer[] inclusive zero-based rows to leave unconcealed
 
 ---@param node Nvimtex.LNode
 ---@param source number|string
@@ -148,7 +155,7 @@ function M.default_processor(node, source, state, viewport_top, viewport_bottom,
 			state:undo()
 		end
 	elseif feedback == M.feedback.conceal and type(source) == "number" then
-		render_tree(node, source)
+		render_tree(node, source, opts)
 	end
 end
 

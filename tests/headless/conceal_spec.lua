@@ -41,6 +41,7 @@ for _, root in ipairs(roots) do
 	texts[#texts + 1] = vim.treesitter.get_node_text(root, buf)
 end
 eq(texts, { "$\\alpha$" }, "markdown roots are limited to the visible range")
+vim.api.nvim_win_set_cursor(0, { 2, 0 })
 require("nvimtex.conceal").setup_buf(buf)
 local conceal_namespace = vim.api.nvim_create_namespace("nvimtex")
 local refreshed = vim.wait(500, function()
